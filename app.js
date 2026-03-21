@@ -605,19 +605,27 @@ backBtn.addEventListener('click', showSongList);
 editSongBtn.addEventListener('click', () => openSongModal(currentSongId));
 deleteSongBtn.addEventListener('click', () => deleteSong(currentSongId));
 
+/** Normalise a transpose delta into [0, CHORD_COUNT). */
+function normalizeTranspose(delta) {
+  return ((delta % CHORD_COUNT) + CHORD_COUNT) % CHORD_COUNT;
+}
+
+/** Format the stored [0,11] delta as a signed integer in the range -6..+6. */
+function formatTransposeDisplay(delta) {
+  const value = delta > 6 ? delta - CHORD_COUNT : delta;
+  return value > 0 ? '+' + value : String(value);
+}
+
 // Transpose
 transposeDown.addEventListener('click', () => {
-  transposeDelta = ((transposeDelta - 1) % CHORD_COUNT + CHORD_COUNT) % CHORD_COUNT;
-  // Display as -6..+6 for clarity
-  const display = transposeDelta > 6 ? transposeDelta - CHORD_COUNT : transposeDelta;
-  transposeValue.textContent = display > 0 ? '+' + display : String(display);
+  transposeDelta = normalizeTranspose(transposeDelta - 1);
+  transposeValue.textContent = formatTransposeDisplay(transposeDelta);
   renderChordContent();
 });
 
 transposeUp.addEventListener('click', () => {
-  transposeDelta = (transposeDelta + 1) % CHORD_COUNT;
-  const display = transposeDelta > 6 ? transposeDelta - CHORD_COUNT : transposeDelta;
-  transposeValue.textContent = display > 0 ? '+' + display : String(display);
+  transposeDelta = normalizeTranspose(transposeDelta + 1);
+  transposeValue.textContent = formatTransposeDisplay(transposeDelta);
   renderChordContent();
 });
 
