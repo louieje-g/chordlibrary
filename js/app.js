@@ -30,7 +30,7 @@
    */
   function generateId() {
     return crypto.randomUUID ? crypto.randomUUID() : 
-      'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      'id-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
   }
 
   /**
@@ -177,7 +177,7 @@
       const newRoot = transposeNote(root, steps);
       let result = newRoot + (quality || '');
       if (slash) {
-        const match = slash.match(/^\/([A-G]#?)(.*)/s);
+        const match = slash.match(/^\/([A-G]#?)(.*)/);
         if (match) {
           result += '/' + transposeNote(match[1], steps) + (match[2] || '');
         } else {
