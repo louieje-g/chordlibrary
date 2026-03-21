@@ -321,6 +321,10 @@ body {
   border-color: var(--clr-primary);
   box-shadow: 0 0 0 3px rgba(74,111,165,.15);
 }
+.form-group input.input-error {
+  border-color: var(--clr-danger);
+  box-shadow: 0 0 0 3px rgba(231,76,60,.15);
+}
 .form-group textarea {
   resize: vertical;
   font-family: 'Courier New', Courier, monospace;

@@ -7,21 +7,26 @@ const STORAGE_KEY = 'chord-library-songs';
 
 // ─── Chord regex ─────────────────────────────────────────────────────────────
 //
-// Matches chord tokens of the form:
-//   ROOT [QUALITY] [/ BASS]
+// Matches chord tokens of the form:   ROOT [QUALITY] [/ BASS]
 //
-// ROOT    : [A-G] with optional #   (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
-// QUALITY : starts with a recognised prefix (m, maj, min, dim, aug, sus, add,
-//           or a digit), followed by any lowercase-alphanum continuation.
-//           This keeps us from swallowing normal words like "Diminished".
-// BASS    : / ROOT  (e.g. D/F#)
+// Capture groups:
+//   1. ROOT    — [A-G] with optional #  (C C# D D# E F F# G G# A A# B)
+//   2. QUALITY — recognised prefix (m/maj/min/dim/aug/sus/add or digit)
+//                followed by any lowercase-alphanum continuation.
+//                Restricting to known prefixes prevents swallowing plain words
+//                (e.g. "D" in "Diminished" is NOT transposed).
+//   3. SLASH   — optional bass note after "/" (e.g. "/F#" in "D/F#")
 //
-// Guards:
-//   (?<![A-Za-z])  – root must NOT be preceded by another letter
-//   (?![a-zA-Z0-9#]) – match must NOT be followed by letter / digit / #
+// Boundary guards:
+//   (?<![A-Za-z])      — root must NOT be preceded by another letter
+//   (?![a-zA-Z0-9#])   — match must NOT be followed by letter / digit / #
 //
+const QUALITY = '(?:m(?:aj)?|M(?:aj)?|min|dim|aug|sus[24]?|add|\\d)[a-z0-9]*';
 const CHORD_RE = () =>
-  /(?<![A-Za-z])([A-G]#?)((?:m(?:aj)?|M(?:aj)?|min|dim|aug|sus[24]?|add|\d)[a-z0-9]*)?(\/[A-G]#?(?:(?:m(?:aj)?|M(?:aj)?|min|dim|aug|sus[24]?|add|\d)[a-z0-9]*)?)?(?![a-zA-Z0-9#])/g;
+  new RegExp(
+    `(?<![A-Za-z])([A-G]#?)(${QUALITY})?(\\/[A-G]#?(?:${QUALITY})?)?(?![a-zA-Z0-9#])`,
+    'g'
+  );
 
 // ─── Music helpers ────────────────────────────────────────────────────────────
 
@@ -80,7 +85,12 @@ function persistSongs(songs) {
 }
 
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Date.now().toString(36) + Math.random().toString(36).slice(2) +
+         Math.random().toString(36).slice(2);
 }
 
 // ─── App state ────────────────────────────────────────────────────────────────
@@ -230,10 +240,10 @@ function saveSong() {
   const title = dom.formTitle.value.trim();
   if (!title) {
     dom.formTitle.focus();
-    dom.formTitle.style.borderColor = 'var(--clr-danger)';
+    dom.formTitle.classList.add('input-error');
     return;
   }
-  dom.formTitle.style.borderColor = '';
+  dom.formTitle.classList.remove('input-error');
 
   const data = {
     title,
@@ -293,9 +303,9 @@ dom.songForm.addEventListener('submit', e => {
   saveSong();
 });
 
-// Clear red border on title field once user starts typing
+// Clear error state on title field once user starts typing
 dom.formTitle.addEventListener('input', () => {
-  dom.formTitle.style.borderColor = '';
+  dom.formTitle.classList.remove('input-error');
 });
 
 // Keyboard shortcuts
