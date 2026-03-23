@@ -142,6 +142,9 @@
   function saveSongs() {
     try {
       localStorage.setItem(STORAGE_KEYS.SONGS, JSON.stringify(songs));
+      if (typeof SyncService !== 'undefined') {
+        SyncService.onDataChanged('songs', songs);
+      }
     } catch (e) {
       console.error('Error saving songs:', e);
     }
@@ -150,6 +153,9 @@
   function savePlaylists() {
     try {
       localStorage.setItem(STORAGE_KEYS.PLAYLISTS, JSON.stringify(playlists));
+      if (typeof SyncService !== 'undefined') {
+        SyncService.onDataChanged('playlists', playlists);
+      }
     } catch (e) {
       console.error('Error saving playlists:', e);
     }
@@ -472,6 +478,11 @@
     openConfirmModal(
       `Are you sure you want to delete "${song.title}"?`,
       () => {
+        // Sync tombstone before removing locally
+        if (typeof SyncService !== 'undefined') {
+          SyncService.onItemDeleted('songs', song);
+        }
+
         songs = songs.filter(s => s.id !== id);
         
         // Remove from all playlists
@@ -575,6 +586,11 @@
     openConfirmModal(
       `Are you sure you want to delete playlist "${playlist.name}"?`,
       () => {
+        // Sync tombstone before removing locally
+        if (typeof SyncService !== 'undefined') {
+          SyncService.onItemDeleted('playlists', playlist);
+        }
+
         playlists = playlists.filter(p => p.id !== id);
         savePlaylists();
         
@@ -972,6 +988,23 @@
     dom.emptyState.classList.remove('hidden');
     dom.songDetail.classList.add('hidden');
     dom.playlistDetail.classList.add('hidden');
+
+    // Initialize Firebase sync
+    if (typeof SyncService !== 'undefined') {
+      SyncService.init();
+      SyncService.initDropdown();
+      SyncService.onRemoteUpdate(function(type, data) {
+        if (type === 'songs') {
+          songs = data;
+          renderSongList();
+          renderSongDetail();
+        } else if (type === 'playlists') {
+          playlists = data;
+          renderPlaylistList();
+          if (selectedPlaylistId) renderPlaylistDetail();
+        }
+      });
+    }
   }
 
   // Start the app when DOM is ready
