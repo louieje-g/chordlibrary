@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 
@@ -13,13 +13,13 @@ const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
-  './css/style.css?v=1.0.1',
+  './css/style.css?v=1.0.2',
   './js/app.js',
-  './js/app.js?v=1.0.1',
+  './js/app.js?v=1.0.2',
   './js/firebase-config.js',
-  './js/firebase-config.js?v=1.0.1',
+  './js/firebase-config.js?v=1.0.2',
   './js/sync-service.js',
-  './js/sync-service.js?v=1.0.1',
+  './js/sync-service.js?v=1.0.2',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
