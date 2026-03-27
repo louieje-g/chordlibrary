@@ -7,6 +7,9 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#1a1a2e" />
     <title>Chord Library</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="stylesheet" href="css/style.css?v=1.0.1" />
   </head>
   <body>
@@ -321,5 +324,14 @@
     <script src="js/firebase-config.js?v=1.0.1"></script>
     <script src="js/sync-service.js?v=1.0.1"></script>
     <script src="js/app.js?v=1.0.1"></script>
+
+    <!-- Service Worker registration for offline support -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw.js');
+        });
+      }
+    </script>
   </body>
 </html>
