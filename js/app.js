@@ -415,7 +415,6 @@
     // Load persistent transpose value for this song
     const song = songs.find(s => s.id === id);
     transposeSteps = song && typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
-    dom.transposeValue.textContent = transposeSteps;
     
     if (fromPlaylist) {
       viewingPlaylistSongIndex = index;
@@ -1066,6 +1065,11 @@
     renderSongList();
     renderPlaylistList();
     initEventListeners();
+    
+    // Initialize font size from dropdown
+    if (dom.fontSizeSelect) {
+      currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 12;
+    }
     
     // Show empty state initially
     dom.emptyState.classList.remove('hidden');
