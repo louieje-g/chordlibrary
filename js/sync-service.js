@@ -257,7 +257,10 @@ const SyncService = (function () {
     return collectionRef.get().then(function (snapshot) {
       var remoteItems = [];
       snapshot.forEach(function (doc) {
-        remoteItems.push(doc.data());
+        // Create a new object with the document ID included
+        // (Firestore stores ID separately from document data)
+        var data = Object.assign({}, doc.data(), { id: doc.id });
+        remoteItems.push(data);
       });
 
       var merged = mergeData(localItems, remoteItems);
