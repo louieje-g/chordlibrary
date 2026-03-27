@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <link rel="stylesheet" href="css/style.css?v=1.0.1" />
+    <link rel="stylesheet" href="css/style.css?v=1.0.2" />
   </head>
   <body>
     <div class="app">
@@ -23,12 +23,7 @@
         >
           <span class="hamburger-icon"></span>
         </button>
-        <h1 class="app-title">Chord Library</h1>
-        <span
-          class="sync-indicator offline"
-          id="sync-indicator"
-          title="Not signed in"
-        ></span>
+        <h1 class="app-title" id="app-title">Chord Library</h1>
         <div class="user-account">
           <button class="user-btn" id="user-btn" title="Sign in to sync">
             <img
@@ -38,6 +33,11 @@
               referrerpolicy="no-referrer"
             />
             <span class="user-icon" id="user-icon">👤</span>
+            <span
+              class="sync-indicator-mini offline"
+              id="sync-indicator"
+              title="Not signed in"
+            ></span>
           </button>
           <div class="user-dropdown" id="user-dropdown">
             <div class="user-dropdown-info">
@@ -57,8 +57,10 @@
             </button>
           </div>
         </div>
-        <button class="btn-icon" id="btn-add-song" title="Add Song">+</button>
       </header>
+
+      <!-- Floating Add Button -->
+      <button class="fab" id="btn-add-song" title="Add Song">+</button>
 
       <!-- Main Content -->
       <main class="app-main">
@@ -104,26 +106,26 @@
 
           <!-- Song Detail View -->
           <div class="song-detail hidden" id="song-detail">
-            <!-- Navigation for playlist songs -->
-            <div class="song-nav hidden" id="song-nav">
-              <button
-                class="nav-btn nav-prev"
-                id="nav-prev"
-                title="Previous Song"
-              >
-                <span class="nav-arrow">‹</span>
-              </button>
-              <span class="nav-info" id="nav-info"></span>
-              <button class="nav-btn nav-next" id="nav-next" title="Next Song">
-                <span class="nav-arrow">›</span>
-              </button>
+            <!-- Navigation hint for playlist songs (replaces navigation buttons) -->
+            <div class="song-nav-hint hidden" id="song-nav-hint">
+              <span class="nav-hint-text">Swipe left/right to navigate • <span id="nav-hint-info"></span></span>
             </div>
 
-            <!-- Transpose Bar -->
-            <div class="transpose-bar">
-              <span class="transpose-label">Transpose:</span>
+            <!-- Toolbar: Font size, Transpose, Edit, Delete in one row -->
+            <div class="song-toolbar">
+              <select class="font-size-select" id="font-size-select" title="Font Size">
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12" selected>12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+              </select>
               <button
-                class="btn-transpose"
+                class="btn-tool"
                 id="btn-transpose-down"
                 title="Down 1 semitone"
               >
@@ -131,18 +133,28 @@
               </button>
               <span class="transpose-value" id="transpose-value">0</span>
               <button
-                class="btn-transpose"
+                class="btn-tool"
                 id="btn-transpose-up"
                 title="Up 1 semitone"
               >
                 +
               </button>
               <button
-                class="btn-reset"
+                class="btn-tool"
                 id="btn-transpose-reset"
                 title="Reset to original key"
               >
-                Reset
+                ↺
+              </button>
+              <button class="btn-tool" id="btn-edit-song" title="Edit Song">
+                ✎
+              </button>
+              <button
+                class="btn-tool btn-danger"
+                id="btn-delete-song"
+                title="Delete Song"
+              >
+                🗑
               </button>
             </div>
 
@@ -151,18 +163,6 @@
               <div class="song-info">
                 <h2 class="song-title" id="song-title"></h2>
                 <p class="song-artist" id="song-artist"></p>
-              </div>
-              <div class="song-actions">
-                <button class="btn-icon" id="btn-edit-song" title="Edit Song">
-                  ✎
-                </button>
-                <button
-                  class="btn-icon btn-danger"
-                  id="btn-delete-song"
-                  title="Delete Song"
-                >
-                  🗑
-                </button>
               </div>
             </div>
 
@@ -204,7 +204,7 @@
     <!-- Song Modal -->
     <div class="modal hidden" id="song-modal">
       <div class="modal-backdrop"></div>
-      <div class="modal-content">
+      <div class="modal-content modal-song">
         <h3 class="modal-title" id="song-modal-title">Add Song</h3>
         <form id="song-form">
           <div class="form-group">
@@ -215,8 +215,16 @@
             <label for="song-artist-input">Artist</label>
             <input type="text" id="song-artist-input" />
           </div>
-          <div class="form-group">
-            <label for="song-content-input">Lyrics & Chords *</label>
+          <div class="form-group form-group-chords">
+            <div class="label-with-buttons">
+              <label for="song-content-input">Lyrics & Chords *</label>
+              <div class="char-buttons">
+                <button type="button" class="char-btn" data-char="#">#</button>
+                <button type="button" class="char-btn" data-char="/">/</button>
+                <button type="button" class="char-btn" data-char="|">|</button>
+                <button type="button" class="char-btn" data-char="-">-</button>
+              </div>
+            </div>
             <textarea
               id="song-content-input"
               rows="10"
@@ -321,9 +329,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <!-- App Scripts -->
-    <script src="js/firebase-config.js?v=1.0.1"></script>
-    <script src="js/sync-service.js?v=1.0.1"></script>
-    <script src="js/app.js?v=1.0.1"></script>
+    <script src="js/firebase-config.js?v=1.0.2"></script>
+    <script src="js/sync-service.js?v=1.0.2"></script>
+    <script src="js/app.js?v=1.0.2"></script>
 
     <!-- Service Worker registration for offline support -->
     <script>

@@ -185,28 +185,29 @@ const SyncService = (function () {
     var indicator = document.getElementById('sync-indicator');
     if (!indicator) return;
 
-    indicator.className = 'sync-indicator';
+    // Reset class - use mini version for the new design
+    indicator.className = 'sync-indicator-mini';
     switch (syncStatus) {
       case 'idle':
         indicator.classList.add('synced');
         indicator.title = 'Synced';
-        indicator.textContent = '✓';
+        indicator.textContent = '';
         break;
       case 'syncing':
         indicator.classList.add('syncing');
         indicator.title = 'Syncing…';
-        indicator.textContent = '↻';
+        indicator.textContent = '';
         break;
       case 'error':
         indicator.classList.add('sync-error');
         indicator.title = 'Sync error';
-        indicator.textContent = '⚠';
+        indicator.textContent = '';
         break;
       case 'offline':
       default:
         indicator.classList.add('offline');
         indicator.title = currentUser ? 'Offline' : 'Not signed in';
-        indicator.textContent = currentUser ? '—' : '';
+        indicator.textContent = '';
         break;
     }
   }

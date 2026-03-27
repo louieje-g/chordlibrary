@@ -60,6 +60,8 @@
   let editingSongId = null;
   let editingPlaylistId = null;
   let confirmCallback = null;
+  let currentFontSize = 12; // Default font size for chord content
+  let viewingFromPlaylistId = null; // Track which playlist we're viewing from (for auto-add)
 
   // ================================================
   // DOM Elements
@@ -79,17 +81,19 @@
     songDetail: $('song-detail'),
     playlistDetail: $('playlist-detail'),
     
-    // Song Navigation
-    songNav: $('song-nav'),
-    navPrev: $('nav-prev'),
-    navNext: $('nav-next'),
-    navInfo: $('nav-info'),
+    // Song Navigation Hint
+    songNavHint: $('song-nav-hint'),
+    navHintInfo: $('nav-hint-info'),
     
-    // Transpose
+    // Song Toolbar
+    fontSizeSelect: $('font-size-select'),
     transposeUp: $('btn-transpose-up'),
     transposeDown: $('btn-transpose-down'),
     transposeReset: $('btn-transpose-reset'),
     transposeValue: $('transpose-value'),
+    
+    // Header
+    appTitle: $('app-title'),
     
     // Song Detail
     songTitle: $('song-title'),
@@ -297,12 +301,17 @@
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
       dom.playlistDetail.classList.add('hidden');
+      // Reset header title
+      dom.appTitle.textContent = 'Chord Library';
       return;
     }
 
     dom.emptyState.classList.add('hidden');
     dom.songDetail.classList.remove('hidden');
     dom.playlistDetail.classList.add('hidden');
+
+    // Update header title with song title
+    dom.appTitle.textContent = song.title;
 
     // Update song info
     const transposedTitle = transposeSteps !== 0 
@@ -317,11 +326,16 @@
     if (transposeSteps > 0) dom.transposeValue.classList.add('positive');
     else if (transposeSteps < 0) dom.transposeValue.classList.add('negative');
 
+    // Apply font size to song content
+    const lineHeight = Math.round(currentFontSize * 1.6);
+    dom.songContent.style.fontSize = currentFontSize + 'px';
+    dom.songContent.style.lineHeight = lineHeight + 'px';
+
     // Transpose and highlight chords
     const transposedContent = transposeText(song.content, transposeSteps);
     dom.songContent.innerHTML = highlightChords(transposedContent);
 
-    // Update navigation if viewing from playlist
+    // Update navigation hint if viewing from playlist
     updateSongNavigation();
   }
 
@@ -331,12 +345,17 @@
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
       dom.playlistDetail.classList.add('hidden');
+      // Reset header title
+      dom.appTitle.textContent = 'Chord Library';
       return;
     }
 
     dom.emptyState.classList.add('hidden');
     dom.songDetail.classList.add('hidden');
     dom.playlistDetail.classList.remove('hidden');
+
+    // Reset header title when viewing playlist (not a song)
+    dom.appTitle.textContent = 'Chord Library';
 
     dom.playlistTitle.textContent = playlist.name;
     dom.playlistDescription.textContent = playlist.description || '';
@@ -369,7 +388,7 @@
     const playlist = playlists.find(p => p.id === selectedPlaylistId);
     
     if (!playlist || viewingPlaylistSongIndex < 0) {
-      dom.songNav.classList.add('hidden');
+      dom.songNavHint.classList.add('hidden');
       return;
     }
 
@@ -378,15 +397,12 @@
       .filter(Boolean);
 
     if (playlistSongs.length <= 1) {
-      dom.songNav.classList.add('hidden');
+      dom.songNavHint.classList.add('hidden');
       return;
     }
 
-    dom.songNav.classList.remove('hidden');
-    dom.navInfo.textContent = `${viewingPlaylistSongIndex + 1} / ${playlistSongs.length}`;
-    
-    dom.navPrev.disabled = viewingPlaylistSongIndex <= 0;
-    dom.navNext.disabled = viewingPlaylistSongIndex >= playlistSongs.length - 1;
+    dom.songNavHint.classList.remove('hidden');
+    dom.navHintInfo.textContent = `${viewingPlaylistSongIndex + 1} / ${playlistSongs.length}`;
   }
 
   // ================================================
@@ -395,13 +411,18 @@
   
   function selectSong(id, fromPlaylist = false, index = -1) {
     selectedSongId = id;
-    transposeSteps = 0;
+    
+    // Load persistent transpose value for this song
+    const song = songs.find(s => s.id === id);
+    transposeSteps = song && typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
     
     if (fromPlaylist) {
       viewingPlaylistSongIndex = index;
+      viewingFromPlaylistId = selectedPlaylistId;
     } else {
       selectedPlaylistId = null;
       viewingPlaylistSongIndex = -1;
+      viewingFromPlaylistId = null;
     }
     
     renderSongList();
@@ -458,11 +479,29 @@
         title,
         artist,
         content,
+        transposeSteps: 0,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
       songs.push(newSong);
       selectedSongId = newSong.id;
+      transposeSteps = 0; // Reset transpose for new song
+      
+      // Auto-add new song to current playlist if viewing from playlist
+      if (viewingFromPlaylistId) {
+        const playlist = playlists.find(p => p.id === viewingFromPlaylistId);
+        if (playlist) {
+          playlist.songIds.push(newSong.id);
+          playlist.updatedAt = Date.now();
+          // Update the index to point to the new song (last in playlist)
+          viewingPlaylistSongIndex = playlist.songIds.length - 1;
+          savePlaylists();
+          renderPlaylistList();
+        }
+      } else {
+        // Not from playlist, reset the index
+        viewingPlaylistSongIndex = -1;
+      }
     }
     
     saveSongs();
@@ -513,6 +552,7 @@
     selectedPlaylistId = id;
     selectedSongId = null;
     viewingPlaylistSongIndex = -1;
+    viewingFromPlaylistId = id; // Track for auto-add feature
     transposeSteps = 0;
     
     renderPlaylistList();
@@ -678,7 +718,8 @@
     const song = playlistSongs[viewingPlaylistSongIndex];
     if (song) {
       selectedSongId = song.id;
-      transposeSteps = 0;
+      // Load persistent transpose value for this song
+      transposeSteps = typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
       renderSongDetail();
     }
   }
@@ -697,7 +738,8 @@
     const song = playlistSongs[viewingPlaylistSongIndex];
     if (song) {
       selectedSongId = song.id;
-      transposeSteps = 0;
+      // Load persistent transpose value for this song
+      transposeSteps = typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
       renderSongDetail();
     }
   }
@@ -821,6 +863,31 @@
     return div.innerHTML;
   }
 
+  /**
+   * Save current transpose value to the song (persistent)
+   */
+  function saveTransposeForSong() {
+    if (!selectedSongId) return;
+    const song = songs.find(s => s.id === selectedSongId);
+    if (song) {
+      song.transposeSteps = transposeSteps;
+      song.updatedAt = Date.now();
+      saveSongs();
+    }
+  }
+
+  /**
+   * Insert a character at the current cursor position in a textarea
+   */
+  function insertCharAtCursor(textarea, char) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    textarea.value = text.substring(0, start) + char + text.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + char.length;
+    textarea.focus();
+  }
+
   // ================================================
   // Event Listeners
   // ================================================
@@ -878,25 +945,32 @@
       }
     });
     
-    // Transpose buttons
+    // Font size selector
+    dom.fontSizeSelect.addEventListener('change', (e) => {
+      currentFontSize = parseInt(e.target.value, 10);
+      if (selectedSongId) {
+        renderSongDetail();
+      }
+    });
+    
+    // Transpose buttons with persistent saving
     dom.transposeUp.addEventListener('click', () => {
       transposeSteps++;
+      saveTransposeForSong();
       renderSongDetail();
     });
     
     dom.transposeDown.addEventListener('click', () => {
       transposeSteps--;
+      saveTransposeForSong();
       renderSongDetail();
     });
     
     dom.transposeReset.addEventListener('click', () => {
       transposeSteps = 0;
+      saveTransposeForSong();
       renderSongDetail();
     });
-    
-    // Navigation buttons
-    dom.navPrev.addEventListener('click', navigateToPreviousSong);
-    dom.navNext.addEventListener('click', navigateToNextSong);
     
     // Add song button
     $('btn-add-song').addEventListener('click', () => openSongModal());
@@ -915,6 +989,14 @@
     dom.songForm.addEventListener('submit', saveSong);
     $('btn-cancel-song').addEventListener('click', closeSongModal);
     dom.songModal.querySelector('.modal-backdrop').addEventListener('click', closeSongModal);
+    
+    // Character insert buttons
+    $$('.char-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const char = btn.dataset.char;
+        insertCharAtCursor(dom.songContentInput, char);
+      });
+    });
     
     // Add playlist button
     $('btn-add-playlist').addEventListener('click', () => openPlaylistModal());
@@ -983,6 +1065,11 @@
     renderSongList();
     renderPlaylistList();
     initEventListeners();
+    
+    // Initialize font size from dropdown
+    if (dom.fontSizeSelect) {
+      currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 12;
+    }
     
     // Show empty state initially
     dom.emptyState.classList.remove('hidden');
