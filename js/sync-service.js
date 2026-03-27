@@ -257,9 +257,9 @@ const SyncService = (function () {
     return collectionRef.get().then(function (snapshot) {
       var remoteItems = [];
       snapshot.forEach(function (doc) {
-        var data = doc.data();
-        // Ensure the item has the document ID (Firestore stores ID separately)
-        data.id = doc.id;
+        // Create a new object with the document ID included
+        // (Firestore stores ID separately from document data)
+        var data = Object.assign({}, doc.data(), { id: doc.id });
         remoteItems.push(data);
       });
 
