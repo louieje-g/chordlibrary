@@ -311,6 +311,37 @@ body {
   flex-shrink: 0;
 }
 
+/* Sidebar Sort */
+.sidebar-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md) var(--spacing-sm) var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.sidebar-sort label {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sort-select {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  outline: none;
+}
+
+.sort-select:focus {
+  border-color: var(--accent);
+}
+
 .btn-add-playlist {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
@@ -453,14 +484,16 @@ body {
 
 /* Song Navigation Hint (mobile swipe hint) */
 .song-nav-hint {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
   margin-bottom: var(--spacing-sm);
   text-align: center;
+  display: inline-block;
 }
 
 .nav-hint-text {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Song Toolbar (Font size, Transpose, Edit, Delete in one row) */
@@ -474,6 +507,19 @@ body {
   margin-bottom: var(--spacing-md);
   flex-wrap: nowrap;
   overflow-x: auto;
+}
+
+.song-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.song-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-left: auto;
 }
 
 .font-size-select {
@@ -521,6 +567,10 @@ body {
 
 .btn-tool:active {
   transform: scale(0.95);
+}
+
+.btn-tool.btn-transpose-reset {
+  font-size: 1.25rem;
 }
 
 .btn-tool.btn-danger:hover {
@@ -627,7 +677,7 @@ body {
 }
 
 .song-title {
-  font-size: var(--font-size-xl);
+  font-size: calc(var(--font-size-xl) * 0.8);
   font-weight: 600;
   margin-bottom: var(--spacing-xs);
   word-wrap: break-word;
@@ -1333,7 +1383,7 @@ body {
   
   /* Larger text for desktop */
   .song-title {
-    font-size: 2rem;
+    font-size: calc(2rem * 0.8);
   }
   
   .song-content {

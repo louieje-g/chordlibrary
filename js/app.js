@@ -60,7 +60,7 @@
   let editingSongId = null;
   let editingPlaylistId = null;
   let confirmCallback = null;
-  let currentFontSize = 12; // Default font size for chord content
+  let currentFontSize = 14; // Default font size for chord content
   let viewingFromPlaylistId = null; // Track which playlist we're viewing from (for auto-add)
 
   // ================================================
@@ -74,6 +74,8 @@
     searchInput: $('search-input'),
     songList: $('song-list'),
     playlistList: $('playlist-list'),
+    songsSort: $('songs-sort'),
+    playlistsSort: $('playlists-sort'),
     
     // Content
     content: $('content'),
@@ -252,13 +254,41 @@
   // Render Functions
   // ================================================
   
+  /**
+   * Sort items by the given sort option
+   */
+  function sortItems(items, sortOption, nameKey = 'title') {
+    const sorted = [...items];
+    switch (sortOption) {
+      case 'name-asc':
+        sorted.sort((a, b) => (a[nameKey] || '').localeCompare(b[nameKey] || ''));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => (b[nameKey] || '').localeCompare(a[nameKey] || ''));
+        break;
+      case 'updated-asc':
+        sorted.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+        break;
+      case 'updated-desc':
+      default:
+        sorted.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        break;
+    }
+    return sorted;
+  }
+
   function renderSongList() {
     const query = dom.searchInput.value.trim().toLowerCase();
-    const filtered = query
+    const sortOption = dom.songsSort ? dom.songsSort.value : 'updated-desc';
+    
+    let filtered = query
       ? songs.filter(s => 
           s.title.toLowerCase().includes(query) ||
           (s.artist && s.artist.toLowerCase().includes(query)))
       : songs;
+    
+    // Apply sorting
+    filtered = sortItems(filtered, sortOption, 'title');
 
     if (filtered.length === 0) {
       dom.songList.innerHTML = `
@@ -278,6 +308,8 @@
   }
 
   function renderPlaylistList() {
+    const sortOption = dom.playlistsSort ? dom.playlistsSort.value : 'updated-desc';
+    
     if (playlists.length === 0) {
       dom.playlistList.innerHTML = `
         <li class="empty-list-message" style="padding: 16px; color: var(--text-muted); text-align: center;">
@@ -286,8 +318,11 @@
       `;
       return;
     }
+    
+    // Apply sorting
+    const sortedPlaylists = sortItems(playlists, sortOption, 'name');
 
-    dom.playlistList.innerHTML = playlists.map(playlist => `
+    dom.playlistList.innerHTML = sortedPlaylists.map(playlist => `
       <li class="playlist-item ${playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1 ? 'active' : ''}" data-id="${playlist.id}">
         <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
         <div class="playlist-item-count">${playlist.songIds.length} songs</div>
@@ -310,8 +345,13 @@
     dom.songDetail.classList.remove('hidden');
     dom.playlistDetail.classList.add('hidden');
 
-    // Update header title with song title
-    dom.appTitle.textContent = song.title;
+    // Update header title: show playlist name when viewing from a playlist, otherwise default
+    if (selectedPlaylistId && viewingPlaylistSongIndex >= 0) {
+      const playlist = playlists.find(p => p.id === selectedPlaylistId);
+      dom.appTitle.textContent = playlist ? playlist.name : 'Chord Library';
+    } else {
+      dom.appTitle.textContent = 'Chord Library';
+    }
 
     // Update song info
     const transposedTitle = transposeSteps !== 0 
@@ -910,6 +950,14 @@
     // Search
     dom.searchInput.addEventListener('input', renderSongList);
     
+    // Sort selects
+    if (dom.songsSort) {
+      dom.songsSort.addEventListener('change', renderSongList);
+    }
+    if (dom.playlistsSort) {
+      dom.playlistsSort.addEventListener('change', renderPlaylistList);
+    }
+    
     // Song list click
     dom.songList.addEventListener('click', (e) => {
       const item = e.target.closest('.song-item');
@@ -988,7 +1036,7 @@
     // Song form
     dom.songForm.addEventListener('submit', saveSong);
     $('btn-cancel-song').addEventListener('click', closeSongModal);
-    dom.songModal.querySelector('.modal-backdrop').addEventListener('click', closeSongModal);
+    // Note: Backdrop click intentionally not added to prevent accidental closure
     
     // Character insert buttons
     $$('.char-btn').forEach(btn => {
@@ -1034,9 +1082,9 @@
     
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      // Close modals on Escape
+      // Close modals on Escape (except song modal to prevent accidental loss of input)
       if (e.key === 'Escape') {
-        if (!dom.songModal.classList.contains('hidden')) closeSongModal();
+        // Song modal is excluded - only Cancel and Save buttons close it
         if (!dom.playlistModal.classList.contains('hidden')) closePlaylistModal();
         if (!dom.addSongsModal.classList.contains('hidden')) closeAddSongsModal();
         if (!dom.confirmModal.classList.contains('hidden')) closeConfirmModal();
@@ -1068,7 +1116,7 @@
     
     // Initialize font size from dropdown
     if (dom.fontSizeSelect) {
-      currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 12;
+      currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 14;
     }
     
     // Show empty state initially

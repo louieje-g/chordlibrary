@@ -82,6 +82,15 @@
                 autocomplete="off"
               />
             </div>
+            <div class="sidebar-sort">
+              <label for="songs-sort">Sort by:</label>
+              <select id="songs-sort" class="sort-select">
+                <option value="updated-desc" selected>Updated (newest)</option>
+                <option value="updated-asc">Updated (oldest)</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+              </select>
+            </div>
             <ul class="song-list" id="song-list"></ul>
           </div>
 
@@ -91,6 +100,15 @@
               <button class="btn-add-playlist" id="btn-add-playlist">
                 + New Playlist
               </button>
+            </div>
+            <div class="sidebar-sort">
+              <label for="playlists-sort">Sort by:</label>
+              <select id="playlists-sort" class="sort-select">
+                <option value="updated-desc" selected>Updated (newest)</option>
+                <option value="updated-asc">Updated (oldest)</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+              </select>
             </div>
             <ul class="playlist-list" id="playlist-list"></ul>
           </div>
@@ -113,49 +131,49 @@
 
             <!-- Toolbar: Font size, Transpose, Edit, Delete in one row -->
             <div class="song-toolbar">
-              <select class="font-size-select" id="font-size-select" title="Font Size">
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-                <option value="11">11</option>
-                <option value="12" selected>12</option>
-                <option value="13">13</option>
-                <option value="14">14</option>
-              </select>
-              <button
-                class="btn-tool"
-                id="btn-transpose-down"
-                title="Down 1 semitone"
-              >
-                −
-              </button>
-              <span class="transpose-value" id="transpose-value">0</span>
-              <button
-                class="btn-tool"
-                id="btn-transpose-up"
-                title="Up 1 semitone"
-              >
-                +
-              </button>
-              <button
-                class="btn-tool"
-                id="btn-transpose-reset"
-                title="Reset to original key"
-              >
-                ↺
-              </button>
-              <button class="btn-tool" id="btn-edit-song" title="Edit Song">
-                ✎
-              </button>
-              <button
-                class="btn-tool btn-danger"
-                id="btn-delete-song"
-                title="Delete Song"
-              >
-                🗑
-              </button>
+              <div class="song-toolbar-left">
+                <button
+                  class="btn-tool"
+                  id="btn-transpose-down"
+                  title="Down 1 semitone"
+                >
+                  −
+                </button>
+                <span class="transpose-value" id="transpose-value">0</span>
+                <button
+                  class="btn-tool"
+                  id="btn-transpose-up"
+                  title="Up 1 semitone"
+                >
+                  +
+                </button>
+                <button
+                  class="btn-tool btn-transpose-reset"
+                  id="btn-transpose-reset"
+                  title="Reset to original key"
+                >
+                  ↺
+                </button>
+              </div>
+              <div class="song-toolbar-right">
+                <select class="font-size-select" id="font-size-select" title="Font Size">
+                  <option value="10">10</option>
+                  <option value="12">12</option>
+                  <option value="14" selected>14</option>
+                  <option value="16">16</option>
+                  <option value="18">18</option>
+                </select>
+                <button class="btn-tool" id="btn-edit-song" title="Edit Song">
+                  ✎
+                </button>
+                <button
+                  class="btn-tool btn-danger"
+                  id="btn-delete-song"
+                  title="Delete Song"
+                >
+                  🗑
+                </button>
+              </div>
             </div>
 
             <!-- Song Header -->
