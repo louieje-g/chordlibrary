@@ -73,6 +73,7 @@
   let qrScannerActive = false;
   let qrScannerRafId = null;
   let qrDetector = null;
+  let qrCodeLoadPromise = null;
 
   // ================================================
   // DOM Elements
@@ -126,7 +127,7 @@
     shareQrModal: $('share-qr-modal'),
     shareQrCanvas: $('share-qr-canvas'),
     shareQrHelp: $('share-qr-help'),
-    scanQrPanel: $('scan-qr-panel'),
+    scanQrOverlay: $('qr-scanner-overlay'),
     scanQrVideo: $('scan-qr-video'),
     
     playlistModal: $('playlist-modal'),
@@ -514,7 +515,7 @@
   function openSongModal(songId = null) {
     editingSongId = songId;
     stopQrScan();
-    if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
+    closeScannerOverlay();
     
     if (songId) {
       const song = songs.find(s => s.id === songId);
@@ -535,7 +536,7 @@
 
   function closeSongModal() {
     stopQrScan();
-    if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
+    closeScannerOverlay();
     closeModalWithFocusTrap(dom.songModal);
     editingSongId = null;
     dom.songForm.reset();
@@ -1123,11 +1124,75 @@
     dom.songContentInput.value = song.content || '';
   }
 
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-qr-src="' + src + '"]');
+      if (existing) {
+        if (existing.dataset.loaded === '1') {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load ' + src)), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = src;
+      script.defer = true;
+      script.dataset.qrSrc = src;
+      script.onload = () => {
+        script.dataset.loaded = '1';
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureQrGeneratorLoaded() {
+    if (window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+      return true;
+    }
+
+    if (qrCodeLoadPromise) {
+      return qrCodeLoadPromise;
+    }
+
+    qrCodeLoadPromise = (async () => {
+      const candidates = [
+        './js/qrcode.js?v=1.0.3',
+        'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.js',
+        'https://unpkg.com/qrcode/lib/browser.js'
+      ];
+
+      for (const src of candidates) {
+        try {
+          await loadScriptOnce(src);
+          if (window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+            return true;
+          }
+        } catch (err) {
+          // Try next source.
+        }
+      }
+
+      return false;
+    })();
+
+    const loaded = await qrCodeLoadPromise;
+    if (!loaded) {
+      qrCodeLoadPromise = null;
+    }
+    return loaded;
+  }
+
   async function shareSongViaQr(songId) {
     const song = songs.find(s => s.id === songId);
     if (!song) return;
-    if (!window.QRCode || typeof window.QRCode.toCanvas !== 'function') {
-      showToast('QR generator not loaded. Reload and try again.', 'error');
+    const loaded = await ensureQrGeneratorLoaded();
+    if (!loaded || !window.QRCode || typeof window.QRCode.toCanvas !== 'function') {
+      showToast('QR generator unavailable. Check connection and try again.', 'error');
       return;
     }
 
@@ -1211,6 +1276,15 @@
     }
   }
 
+  function openScannerOverlay() {
+    if (dom.scanQrOverlay) dom.scanQrOverlay.classList.remove('hidden');
+  }
+
+  function closeScannerOverlay() {
+    stopQrScan();
+    if (dom.scanQrOverlay) dom.scanQrOverlay.classList.add('hidden');
+  }
+
   async function scanQrFrameLoop() {
     if (!qrScannerActive || !dom.scanQrVideo) return;
     try {
@@ -1232,7 +1306,7 @@
               populateSongForm(song);
               showToast('Song loaded from QR. Review and save.', 'success');
               stopQrScan();
-              if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
+              closeScannerOverlay();
               return;
             }
           }
@@ -1265,7 +1339,7 @@
       dom.scanQrVideo.srcObject = qrScannerStream;
       await dom.scanQrVideo.play();
       qrScannerActive = true;
-      if (dom.scanQrPanel) dom.scanQrPanel.classList.remove('hidden');
+      openScannerOverlay();
       qrScannerRafId = requestAnimationFrame(scanQrFrameLoop);
     } catch (err) {
       showToast('Unable to start camera scan.', 'error');
@@ -1275,6 +1349,7 @@
 
   async function scanQrFromImageFile(file) {
     if (!file) return;
+    closeScannerOverlay();
     const detector = getQrDetector();
     if (!detector) {
       showToast('QR scan not supported on this browser.', 'error');
@@ -1309,9 +1384,7 @@
       }
 
       const rawValue = detected[0].rawValue || '';
-      if (handleScannedSongQr(rawValue) && dom.scanQrPanel) {
-        dom.scanQrPanel.classList.add('hidden');
-      }
+      handleScannedSongQr(rawValue);
     } catch (err) {
       showToast('Failed to scan QR image.', 'error');
     }
@@ -1680,10 +1753,11 @@
       btnScanQr.addEventListener('click', startQrScan);
     }
     if (btnStopScanQr) {
-      btnStopScanQr.addEventListener('click', () => {
-        stopQrScan();
-        if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
-      });
+      btnStopScanQr.addEventListener('click', closeScannerOverlay);
+    }
+    const btnCloseScanner = $('btn-close-scanner');
+    if (btnCloseScanner) {
+      btnCloseScanner.addEventListener('click', closeScannerOverlay);
     }
     if (btnScanQrImage && scanQrImageFile) {
       btnScanQrImage.addEventListener('click', () => scanQrImageFile.click());

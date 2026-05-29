@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 
@@ -20,6 +20,8 @@ const STATIC_ASSETS = [
   './js/firebase-config.js?v=1.0.2',
   './js/sync-service.js',
   './js/sync-service.js?v=1.0.2',
+  './js/qrcode.js',
+  './js/qrcode.js?v=1.0.3',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

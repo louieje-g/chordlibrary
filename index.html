@@ -230,24 +230,10 @@
           ⬆️ Import Song File
         </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-scan-qr">
-          Scan QR
+          📷 Scan QR
         </button>
         <input type="file" id="import-song-file" accept=".json" class="hidden" />
         <input type="file" id="scan-qr-image-file" accept="image/*" class="hidden" />
-      </div>
-      <div class="scan-qr-panel hidden" id="scan-qr-panel">
-        <video id="scan-qr-video" playsinline muted></video>
-        <div class="scan-qr-actions">
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-stop-scan-qr">
-            Stop Scan
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-scan-qr-image">
-            Scan Image
-          </button>
-        </div>
-        <p class="scan-qr-help">
-          Point the camera to a song QR code to auto-fill this form.
-        </p>
       </div>
       <h3 class="modal-title" id="song-modal-title">Add Song</h3>
       <form id="song-form">
@@ -340,6 +326,35 @@
     </div>
   </div>
 
+  <!-- QR Scanner Modal -->
+  <div class="qr-scanner-overlay hidden" id="qr-scanner-overlay">
+    <div class="qr-scanner-header">
+      <h3 class="qr-scanner-title">Scan QR Code</h3>
+      <button class="qr-scanner-close" id="btn-close-scanner" aria-label="Close scanner">&times;</button>
+    </div>
+    <div class="qr-scanner-body">
+      <div class="qr-scanner-viewfinder">
+        <video id="scan-qr-video" playsinline muted></video>
+        <div class="qr-viewfinder-frame">
+          <span class="vf-corner vf-tl"></span>
+          <span class="vf-corner vf-tr"></span>
+          <span class="vf-corner vf-bl"></span>
+          <span class="vf-corner vf-br"></span>
+          <div class="qr-scan-line"></div>
+        </div>
+      </div>
+      <p class="qr-scanner-hint">Align a song QR code inside the frame</p>
+      <div class="qr-scanner-actions">
+        <button type="button" class="btn btn-secondary" id="btn-scan-qr-image">
+          🖼️ Pick Image
+        </button>
+        <button type="button" class="btn btn-danger" id="btn-stop-scan-qr">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Share Song QR Modal -->
   <div class="modal hidden" id="share-qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
     <div class="modal-backdrop"></div>
@@ -375,7 +390,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script defer src="js/qrcode.js?v=1.0.3"></script>
 
   <!-- App Scripts -->
   <script defer src="js/firebase-config.js?v=1.0.2"></script>
