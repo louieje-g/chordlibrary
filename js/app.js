@@ -27,6 +27,8 @@
     `(?<![A-Za-z])([A-G]#?)(${QUALITY})?(\\/[A-G]#?(?:${QUALITY})?)?(?![a-zA-Z0-9#])`,
     'g'
   );
+  const SONG_QR_TYPE = 'cl-song';
+  const SONG_QR_VERSION = 1;
 
   /**
    * Generate a unique ID
@@ -67,6 +69,10 @@
   let viewingFromPlaylistId = null; // Track which playlist we're viewing from (for auto-add)
   let undoTimer = null;
   let undoData = null; // { type, item, playlists?, songs? }
+  let qrScannerStream = null;
+  let qrScannerActive = false;
+  let qrScannerRafId = null;
+  let qrDetector = null;
 
   // ================================================
   // DOM Elements
@@ -117,6 +123,11 @@
     songTitleInput: $('song-title-input'),
     songArtistInput: $('song-artist-input'),
     songContentInput: $('song-content-input'),
+    shareQrModal: $('share-qr-modal'),
+    shareQrCanvas: $('share-qr-canvas'),
+    shareQrHelp: $('share-qr-help'),
+    scanQrPanel: $('scan-qr-panel'),
+    scanQrVideo: $('scan-qr-video'),
     
     playlistModal: $('playlist-modal'),
     playlistForm: $('playlist-form'),
@@ -502,6 +513,8 @@
 
   function openSongModal(songId = null) {
     editingSongId = songId;
+    stopQrScan();
+    if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
     
     if (songId) {
       const song = songs.find(s => s.id === songId);
@@ -521,6 +534,8 @@
   }
 
   function closeSongModal() {
+    stopQrScan();
+    if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
     closeModalWithFocusTrap(dom.songModal);
     editingSongId = null;
     dom.songForm.reset();
@@ -1079,6 +1094,229 @@
     showToast(`"${song.title}" exported`, 'success');
   }
 
+  function normalizeSongPayload(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = String(raw.title || raw.n || '').trim();
+    const artist = String(raw.artist || raw.a || '').trim();
+    const content = String(raw.content || raw.c || '');
+    if (!title || !content) return null;
+    return { title, artist, content };
+  }
+
+  function extractSongFromParsedData(data) {
+    if (!data || typeof data !== 'object') return null;
+    if (data.type === 'single-song' && data.song) {
+      return normalizeSongPayload(data.song);
+    }
+    if (data.t === SONG_QR_TYPE && Number(data.v) === SONG_QR_VERSION) {
+      return normalizeSongPayload(data);
+    }
+    if (Array.isArray(data.songs) && data.songs.length > 0) {
+      return normalizeSongPayload(data.songs[0]);
+    }
+    return normalizeSongPayload(data);
+  }
+
+  function populateSongForm(song) {
+    dom.songTitleInput.value = song.title || '';
+    dom.songArtistInput.value = song.artist || '';
+    dom.songContentInput.value = song.content || '';
+  }
+
+  async function shareSongViaQr(songId) {
+    const song = songs.find(s => s.id === songId);
+    if (!song) return;
+    if (!window.QRCode || typeof window.QRCode.toCanvas !== 'function') {
+      showToast('QR generator not loaded. Reload and try again.', 'error');
+      return;
+    }
+
+    const payload = JSON.stringify({
+      t: SONG_QR_TYPE,
+      v: SONG_QR_VERSION,
+      n: song.title,
+      a: song.artist || '',
+      c: song.content || ''
+    });
+
+    try {
+      await window.QRCode.toCanvas(dom.shareQrCanvas, payload, {
+        width: 260,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      });
+      if (dom.shareQrHelp) {
+        dom.shareQrHelp.textContent = 'Open Add Song and tap Scan QR on another device.';
+      }
+      openModalWithFocusTrap(dom.shareQrModal);
+    } catch (err) {
+      const message = String((err && err.message) || err || 'QR generation failed');
+      if (message.toLowerCase().includes('code length overflow')) {
+        showToast('Song is too large for a single QR. Use Export Song file instead.', 'error');
+      } else {
+        showToast('Failed to generate QR: ' + message, 'error');
+      }
+    }
+  }
+
+  function closeShareQrModal() {
+    if (!dom.shareQrModal || dom.shareQrModal.classList.contains('hidden')) return;
+    closeModalWithFocusTrap(dom.shareQrModal);
+  }
+
+  function getQrDetector() {
+    if (!('BarcodeDetector' in window)) return null;
+    if (qrDetector) return qrDetector;
+    try {
+      qrDetector = new BarcodeDetector({ formats: ['qr_code'] });
+    } catch (e) {
+      qrDetector = new BarcodeDetector();
+    }
+    return qrDetector;
+  }
+
+  function handleScannedSongQr(rawValue) {
+    if (!rawValue) return false;
+    let parsed;
+    try {
+      parsed = JSON.parse(rawValue);
+    } catch (err) {
+      showToast('QR does not contain valid song data.', 'error');
+      return false;
+    }
+
+    const song = extractSongFromParsedData(parsed);
+    if (!song) {
+      showToast('QR does not contain a compatible song.', 'error');
+      return false;
+    }
+
+    populateSongForm(song);
+    showToast('Song loaded from QR. Review and save.', 'success');
+    return true;
+  }
+
+  function stopQrScan() {
+    qrScannerActive = false;
+    if (qrScannerRafId) {
+      cancelAnimationFrame(qrScannerRafId);
+      qrScannerRafId = null;
+    }
+    if (qrScannerStream) {
+      qrScannerStream.getTracks().forEach(track => track.stop());
+      qrScannerStream = null;
+    }
+    if (dom.scanQrVideo) {
+      dom.scanQrVideo.srcObject = null;
+    }
+  }
+
+  async function scanQrFrameLoop() {
+    if (!qrScannerActive || !dom.scanQrVideo) return;
+    try {
+      const detector = getQrDetector();
+      if (!detector) return;
+      const barcodes = await detector.detect(dom.scanQrVideo);
+      if (barcodes && barcodes.length > 0) {
+        const rawValue = barcodes[0].rawValue || '';
+        if (rawValue) {
+          let parsed = null;
+          try {
+            parsed = JSON.parse(rawValue);
+          } catch (err) {
+            parsed = null;
+          }
+          if (parsed) {
+            const song = extractSongFromParsedData(parsed);
+            if (song) {
+              populateSongForm(song);
+              showToast('Song loaded from QR. Review and save.', 'success');
+              stopQrScan();
+              if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
+              return;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore transient frame-read errors.
+    }
+    qrScannerRafId = requestAnimationFrame(scanQrFrameLoop);
+  }
+
+  async function startQrScan() {
+    const detector = getQrDetector();
+    if (!detector) {
+      showToast('QR scan not supported on this browser.', 'error');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast('Camera access is unavailable in this browser.', 'error');
+      return;
+    }
+
+    stopQrScan();
+    try {
+      qrScannerStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      if (!dom.scanQrVideo) return;
+      dom.scanQrVideo.srcObject = qrScannerStream;
+      await dom.scanQrVideo.play();
+      qrScannerActive = true;
+      if (dom.scanQrPanel) dom.scanQrPanel.classList.remove('hidden');
+      qrScannerRafId = requestAnimationFrame(scanQrFrameLoop);
+    } catch (err) {
+      showToast('Unable to start camera scan.', 'error');
+      stopQrScan();
+    }
+  }
+
+  async function scanQrFromImageFile(file) {
+    if (!file) return;
+    const detector = getQrDetector();
+    if (!detector) {
+      showToast('QR scan not supported on this browser.', 'error');
+      return;
+    }
+
+    try {
+      let detected = [];
+      if ('createImageBitmap' in window) {
+        const bitmap = await createImageBitmap(file);
+        detected = await detector.detect(bitmap);
+        if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+      } else {
+        const img = new Image();
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = dataUrl;
+        });
+        detected = await detector.detect(img);
+      }
+
+      if (!detected || detected.length === 0) {
+        showToast('No QR code detected in image.', 'error');
+        return;
+      }
+
+      const rawValue = detected[0].rawValue || '';
+      if (handleScannedSongQr(rawValue) && dom.scanQrPanel) {
+        dom.scanQrPanel.classList.add('hidden');
+      }
+    } catch (err) {
+      showToast('Failed to scan QR image.', 'error');
+    }
+  }
+
   /**
    * Import a single song from a JSON file
    */
@@ -1087,27 +1325,13 @@
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        let imported = null;
-
-        if (data.type === 'single-song' && data.song) {
-          imported = data.song;
-        } else if (data.songs && Array.isArray(data.songs) && data.songs.length > 0) {
-          // Full backup file — just take the first song
-          imported = data.songs[0];
-        } else if (data.title && data.content) {
-          // Raw song object
-          imported = data;
-        }
-
-        if (!imported || !imported.title || !imported.content) {
+        const imported = extractSongFromParsedData(data);
+        if (!imported) {
           showToast('Invalid song file', 'error');
           return;
         }
 
-        // Populate the song form with the imported data
-        dom.songTitleInput.value = imported.title || '';
-        dom.songArtistInput.value = imported.artist || '';
-        dom.songContentInput.value = imported.content || '';
+        populateSongForm(imported);
         showToast('Song loaded into form — review and save', 'success');
       } catch (err) {
         showToast('Failed to parse file: ' + err.message, 'error');
@@ -1416,6 +1640,11 @@
       if (selectedSongId) exportSingleSong(selectedSongId);
     });
 
+    // Share song via QR button
+    $('btn-share-song').addEventListener('click', () => {
+      if (selectedSongId) shareSongViaQr(selectedSongId);
+    });
+
     // Edit song button
     $('btn-edit-song').addEventListener('click', () => {
       if (selectedSongId) openSongModal(selectedSongId);
@@ -1434,6 +1663,10 @@
     // Import single song in song modal
     const btnImportSong = $('btn-import-song');
     const importSongFile = $('import-song-file');
+    const btnScanQr = $('btn-scan-qr');
+    const btnStopScanQr = $('btn-stop-scan-qr');
+    const btnScanQrImage = $('btn-scan-qr-image');
+    const scanQrImageFile = $('scan-qr-image-file');
     if (btnImportSong && importSongFile) {
       btnImportSong.addEventListener('click', () => importSongFile.click());
       importSongFile.addEventListener('change', (e) => {
@@ -1442,6 +1675,36 @@
           e.target.value = '';
         }
       });
+    }
+    if (btnScanQr) {
+      btnScanQr.addEventListener('click', startQrScan);
+    }
+    if (btnStopScanQr) {
+      btnStopScanQr.addEventListener('click', () => {
+        stopQrScan();
+        if (dom.scanQrPanel) dom.scanQrPanel.classList.add('hidden');
+      });
+    }
+    if (btnScanQrImage && scanQrImageFile) {
+      btnScanQrImage.addEventListener('click', () => scanQrImageFile.click());
+      scanQrImageFile.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          scanQrFromImageFile(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
+
+    // Share QR modal
+    const btnCloseShareQr = $('btn-close-share-qr');
+    if (btnCloseShareQr) {
+      btnCloseShareQr.addEventListener('click', closeShareQrModal);
+    }
+    if (dom.shareQrModal) {
+      const shareBackdrop = dom.shareQrModal.querySelector('.modal-backdrop');
+      if (shareBackdrop) {
+        shareBackdrop.addEventListener('click', closeShareQrModal);
+      }
     }
     
     // Character insert buttons
@@ -1494,6 +1757,7 @@
         if (!dom.playlistModal.classList.contains('hidden')) closePlaylistModal();
         if (!dom.addSongsModal.classList.contains('hidden')) closeAddSongsModal();
         if (!dom.confirmModal.classList.contains('hidden')) closeConfirmModal();
+        if (dom.shareQrModal && !dom.shareQrModal.classList.contains('hidden')) closeShareQrModal();
       }
       
       // Arrow key navigation for playlist songs

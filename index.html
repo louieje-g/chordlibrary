@@ -1,520 +1,406 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#1a1a2e" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://firebaseinstallations.googleapis.com https://www.googleapis.com; img-src 'self' https: data:; frame-src https://accounts.google.com https://*.firebaseapp.com https://apis.google.com;"
-    />
-    <title>Chord Library</title>
-    <link rel="manifest" href="manifest.json" />
-    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <link rel="stylesheet" href="css/style.css?v=1.0.2" />
-  </head>
-  <body>
-    <div class="app">
-      <!-- Header -->
-      <header class="app-header">
-        <button
-          class="btn-icon menu-toggle"
-          id="menu-toggle"
-          aria-label="Toggle navigation menu"
-          title="Toggle Menu"
-        >
-          <span class="hamburger-icon" aria-hidden="true"></span>
-        </button>
-        <h1 class="app-title" id="app-title">Chord Library</h1>
-        <button
-          class="btn-icon theme-toggle"
-          id="theme-toggle"
-          aria-label="Toggle light/dark theme"
-          title="Toggle Theme"
-        >
-          <span id="theme-icon">🌙</span>
-        </button>
-        <div class="user-account">
-          <button class="user-btn" id="user-btn" title="Sign in to sync">
-            <img
-              class="user-avatar hidden"
-              id="user-avatar"
-              alt=""
-              referrerpolicy="no-referrer"
-            />
-            <span class="user-icon" id="user-icon">👤</span>
-            <span
-              class="sync-indicator-mini offline"
-              id="sync-indicator"
-              title="Not signed in"
-            ></span>
-          </button>
-          <div class="user-dropdown" id="user-dropdown">
-            <div class="user-dropdown-info">
-              <span class="user-dropdown-name" id="user-dropdown-name"
-                >Not signed in</span
-              >
-              <span class="user-dropdown-email" id="user-dropdown-email"></span>
-            </div>
-            <button class="btn btn-primary user-dropdown-btn" id="btn-sign-in">
-              Sign in with Google
-            </button>
-            <button
-              class="btn btn-danger user-dropdown-btn hidden"
-              id="btn-sign-out"
-            >
-              Sign out
-            </button>
-            <hr class="dropdown-divider" />
-            <button
-              class="btn btn-secondary user-dropdown-btn"
-              id="btn-export-data"
-            >
-              Export Data
-            </button>
-            <button
-              class="btn btn-secondary user-dropdown-btn"
-              id="btn-import-data"
-            >
-              Import Data
-            </button>
-            <input
-              type="file"
-              id="import-file-input"
-              accept=".json"
-              class="hidden"
-            />
-          </div>
-        </div>
-      </header>
 
-      <!-- Floating Add Button -->
-      <button
-        class="fab"
-        id="btn-add-song"
-        aria-label="Add Song"
-        title="Add Song"
-      >
-        +
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://firebaseinstallations.googleapis.com https://www.googleapis.com; img-src 'self' https: data:; frame-src https://accounts.google.com https://*.firebaseapp.com https://apis.google.com;" />
+  <title>Chord Library</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css?v=1.0.2" />
+</head>
+
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="app-header">
+      <button class="btn-icon menu-toggle" id="menu-toggle" aria-label="Toggle navigation menu" title="Toggle Menu">
+        <span class="hamburger-icon" aria-hidden="true"></span>
       </button>
-
-      <!-- SW Update Banner -->
-      <div class="update-banner hidden" id="update-banner" role="alert">
-        <span>A new version is available</span>
-        <button class="btn btn-primary btn-sm" id="btn-update-refresh">
-          Refresh
+      <h1 class="app-title" id="app-title">Chord Library</h1>
+      <button class="btn-icon theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
+        <span id="theme-icon">🌙</span>
+      </button>
+      <div class="user-account">
+        <button class="user-btn" id="user-btn" title="Sign in to sync">
+          <img class="user-avatar hidden" id="user-avatar" alt="" referrerpolicy="no-referrer" />
+          <span class="user-icon" id="user-icon">👤</span>
+          <span class="sync-indicator-mini offline" id="sync-indicator" title="Not signed in"></span>
         </button>
-        <button
-          class="btn-dismiss"
-          id="btn-update-dismiss"
-          aria-label="Dismiss"
-        >
-          &times;
-        </button>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="user-dropdown-info">
+            <span class="user-dropdown-name" id="user-dropdown-name">Not signed in</span>
+            <span class="user-dropdown-email" id="user-dropdown-email"></span>
+          </div>
+          <button class="btn btn-primary user-dropdown-btn" id="btn-sign-in">
+            Sign in with Google
+          </button>
+          <button class="btn btn-danger user-dropdown-btn hidden" id="btn-sign-out">
+            Sign out
+          </button>
+          <hr class="dropdown-divider" />
+          <button class="btn btn-secondary user-dropdown-btn" id="btn-export-data">
+            Export Data
+          </button>
+          <button class="btn btn-secondary user-dropdown-btn" id="btn-import-data">
+            Import Data
+          </button>
+          <input type="file" id="import-file-input" accept=".json" class="hidden" />
+        </div>
       </div>
+    </header>
 
-      <!-- Main Content -->
-      <main class="app-main">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-          <!-- Tabs for Songs/Playlists -->
-          <div class="sidebar-tabs">
-            <button class="tab-btn active" data-tab="songs">Songs</button>
-            <button class="tab-btn" data-tab="playlists">Playlists</button>
+    <!-- Floating Add Button -->
+    <button class="fab" id="btn-add-song" aria-label="Add Song" title="Add Song">
+      +
+    </button>
+
+    <!-- SW Update Banner -->
+    <div class="update-banner hidden" id="update-banner" role="alert">
+      <span>A new version is available</span>
+      <button class="btn btn-primary btn-sm" id="btn-update-refresh">
+        Refresh
+      </button>
+      <button class="btn-dismiss" id="btn-update-dismiss" aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <!-- Tabs for Songs/Playlists -->
+        <div class="sidebar-tabs">
+          <button class="tab-btn active" data-tab="songs">Songs</button>
+          <button class="tab-btn" data-tab="playlists">Playlists</button>
+        </div>
+
+        <!-- Songs Tab -->
+        <div class="sidebar-content active" id="songs-tab">
+          <div class="sidebar-search">
+            <input type="text" id="search-input" placeholder="Search songs…" autocomplete="off" />
+          </div>
+          <div class="sidebar-sort">
+            <label for="songs-sort">Sort by:</label>
+            <select id="songs-sort" class="sort-select">
+              <option value="updated-desc" selected>Updated (newest)</option>
+              <option value="updated-asc">Updated (oldest)</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+            </select>
+          </div>
+          <ul class="song-list" id="song-list"></ul>
+        </div>
+
+        <!-- Playlists Tab -->
+        <div class="sidebar-content" id="playlists-tab">
+          <div class="sidebar-actions">
+            <button class="btn-add-playlist" id="btn-add-playlist">
+              + New Playlist
+            </button>
+          </div>
+          <div class="sidebar-sort">
+            <label for="playlists-sort">Sort by:</label>
+            <select id="playlists-sort" class="sort-select">
+              <option value="updated-desc" selected>Updated (newest)</option>
+              <option value="updated-asc">Updated (oldest)</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+            </select>
+          </div>
+          <ul class="playlist-list" id="playlist-list"></ul>
+        </div>
+      </aside>
+
+      <!-- Content Area -->
+      <section class="content" id="content">
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🎸</div>
+          <p>Select a song or add a new one</p>
+        </div>
+
+        <!-- Song Detail View -->
+        <div class="song-detail hidden" id="song-detail">
+          <!-- Back to playlist + navigation hint -->
+          <div class="song-detail-top">
+            <button class="btn-back-playlist hidden" id="btn-back-playlist" aria-label="Back to playlist"
+              title="Back to playlist">
+              ← <span id="btn-back-playlist-label">Playlist</span>
+            </button>
+            <div class="song-nav-hint hidden" id="song-nav-hint">
+              <span class="nav-hint-text">Swipe left/right • <span id="nav-hint-info"></span></span>
+            </div>
           </div>
 
-          <!-- Songs Tab -->
-          <div class="sidebar-content active" id="songs-tab">
-            <div class="sidebar-search">
-              <input
-                type="text"
-                id="search-input"
-                placeholder="Search songs…"
-                autocomplete="off"
-              />
-            </div>
-            <div class="sidebar-sort">
-              <label for="songs-sort">Sort by:</label>
-              <select id="songs-sort" class="sort-select">
-                <option value="updated-desc" selected>Updated (newest)</option>
-                <option value="updated-asc">Updated (oldest)</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-              </select>
-            </div>
-            <ul class="song-list" id="song-list"></ul>
-          </div>
-
-          <!-- Playlists Tab -->
-          <div class="sidebar-content" id="playlists-tab">
-            <div class="sidebar-actions">
-              <button class="btn-add-playlist" id="btn-add-playlist">
-                + New Playlist
+          <!-- Toolbar: Font size, Transpose, Edit, Delete in one row -->
+          <div class="song-toolbar">
+            <div class="song-toolbar-left">
+              <button class="btn-tool" id="btn-transpose-down" aria-label="Transpose down 1 semitone"
+                title="Down 1 semitone">
+                −
+              </button>
+              <span class="transpose-value" id="transpose-value" aria-live="polite">0</span>
+              <button class="btn-tool" id="btn-transpose-up" aria-label="Transpose up 1 semitone" title="Up 1 semitone">
+                +
+              </button>
+              <button class="btn-tool btn-transpose-reset" id="btn-transpose-reset" aria-label="Reset to original key"
+                title="Reset to original key">
+                ↺
               </button>
             </div>
-            <div class="sidebar-sort">
-              <label for="playlists-sort">Sort by:</label>
-              <select id="playlists-sort" class="sort-select">
-                <option value="updated-desc" selected>Updated (newest)</option>
-                <option value="updated-asc">Updated (oldest)</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
+            <div class="song-toolbar-right">
+              <select class="font-size-select" id="font-size-select" title="Font Size">
+                <option value="10">10</option>
+                <option value="12">12</option>
+                <option value="14" selected>14</option>
+                <option value="16">16</option>
+                <option value="18">18</option>
               </select>
-            </div>
-            <ul class="playlist-list" id="playlist-list"></ul>
-          </div>
-        </aside>
-
-        <!-- Content Area -->
-        <section class="content" id="content">
-          <!-- Empty State -->
-          <div class="empty-state" id="empty-state">
-            <div class="empty-icon">🎸</div>
-            <p>Select a song or add a new one</p>
-          </div>
-
-          <!-- Song Detail View -->
-          <div class="song-detail hidden" id="song-detail">
-            <!-- Back to playlist + navigation hint -->
-            <div class="song-detail-top">
-              <button
-                class="btn-back-playlist hidden"
-                id="btn-back-playlist"
-                aria-label="Back to playlist"
-                title="Back to playlist"
-              >
-                ← <span id="btn-back-playlist-label">Playlist</span>
+              <button class="btn-tool" id="btn-share-song" aria-label="Share Song via QR" title="Share Song via QR">
+                <!-- QR Code Icon (SVG) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="5" height="5"></rect>
+                  <rect x="16" y="3" width="5" height="5"></rect>
+                  <rect x="3" y="16" width="5" height="5"></rect>
+                  <path d="M21 16h-3v3"></path>
+                  <path d="M21 21v.01"></path>
+                  <path d="M12 7v3"></path>
+                  <path d="M12 12h3"></path>
+                  <path d="M12 16v.01"></path>
+                  <path d="M16 12h1"></path>
+                  <path d="M21 12v.01"></path>
+                  <path d="M12 21v-1"></path>
+                </svg>
+                <!-- QR -->
               </button>
-              <div class="song-nav-hint hidden" id="song-nav-hint">
-                <span class="nav-hint-text"
-                  >Swipe left/right • <span id="nav-hint-info"></span
-                ></span>
-              </div>
+              <button class="btn-tool" id="btn-export-song" aria-label="Export Song" title="Export Song">
+                ⬇️
+              </button>
+              <button class="btn-tool" id="btn-edit-song" aria-label="Edit Song" title="Edit Song">
+                ✎
+              </button>
+              <button class="btn-tool btn-danger" id="btn-delete-song" aria-label="Delete Song" title="Delete Song">
+                🗑
+              </button>
             </div>
-
-            <!-- Toolbar: Font size, Transpose, Edit, Delete in one row -->
-            <div class="song-toolbar">
-              <div class="song-toolbar-left">
-                <button
-                  class="btn-tool"
-                  id="btn-transpose-down"
-                  aria-label="Transpose down 1 semitone"
-                  title="Down 1 semitone"
-                >
-                  −
-                </button>
-                <span
-                  class="transpose-value"
-                  id="transpose-value"
-                  aria-live="polite"
-                  >0</span
-                >
-                <button
-                  class="btn-tool"
-                  id="btn-transpose-up"
-                  aria-label="Transpose up 1 semitone"
-                  title="Up 1 semitone"
-                >
-                  +
-                </button>
-                <button
-                  class="btn-tool btn-transpose-reset"
-                  id="btn-transpose-reset"
-                  aria-label="Reset to original key"
-                  title="Reset to original key"
-                >
-                  ↺
-                </button>
-              </div>
-              <div class="song-toolbar-right">
-                <select
-                  class="font-size-select"
-                  id="font-size-select"
-                  title="Font Size"
-                >
-                  <option value="10">10</option>
-                  <option value="12">12</option>
-                  <option value="14" selected>14</option>
-                  <option value="16">16</option>
-                  <option value="18">18</option>
-                </select>
-                <button
-                  class="btn-tool"
-                  id="btn-export-song"
-                  aria-label="Export Song"
-                  title="Export Song"
-                >
-                  ⬇️
-                </button>
-                <button
-                  class="btn-tool"
-                  id="btn-edit-song"
-                  aria-label="Edit Song"
-                  title="Edit Song"
-                >
-                  ✎
-                </button>
-                <button
-                  class="btn-tool btn-danger"
-                  id="btn-delete-song"
-                  aria-label="Delete Song"
-                  title="Delete Song"
-                >
-                  🗑
-                </button>
-              </div>
-            </div>
-
-            <!-- Song Content -->
-            <pre class="song-content" id="song-content"></pre>
           </div>
 
-          <!-- Playlist Detail View -->
-          <div class="playlist-detail hidden" id="playlist-detail">
-            <div class="playlist-header">
-              <div class="playlist-actions">
-                <button
-                  class="btn-icon"
-                  id="btn-edit-playlist"
-                  title="Edit Playlist"
-                >
-                  ✎
-                </button>
-                <button
-                  class="btn-icon btn-danger"
-                  id="btn-delete-playlist"
-                  title="Delete Playlist"
-                >
-                  🗑
-                </button>
-              </div>
-            </div>
-            <h2 class="playlist-title" id="playlist-title"></h2>
-            <p class="playlist-description" id="playlist-description"></p>
-            <button class="btn-add-songs" id="btn-add-songs-to-playlist">
-              + Add Songs
-            </button>
-            <ul class="playlist-songs" id="playlist-songs"></ul>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <!-- Song Modal -->
-    <div
-      class="modal hidden"
-      id="song-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="song-modal-title"
-    >
-      <div class="modal-backdrop"></div>
-      <div class="modal-content modal-song">
-        <div class="import-song-row">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-import-song"
-          >
-            ⬆️ Import Song File
-          </button>
-          <input
-            type="file"
-            id="import-song-file"
-            accept=".json"
-            class="hidden"
-          />
+          <!-- Song Content -->
+          <pre class="song-content" id="song-content"></pre>
         </div>
-        <h3 class="modal-title" id="song-modal-title">Add Song</h3>
-        <form id="song-form">
-          <div class="form-group">
-            <label for="song-title-input">Title *</label>
-            <input type="text" id="song-title-input" required />
-          </div>
-          <div class="form-group">
-            <label for="song-artist-input">Artist</label>
-            <input type="text" id="song-artist-input" />
-          </div>
-          <div class="form-group form-group-chords">
-            <div class="label-with-buttons">
-              <label for="song-content-input">Lyrics & Chords *</label>
-              <div class="char-buttons">
-                <button type="button" class="char-btn" data-char="#">#</button>
-                <button type="button" class="char-btn" data-char="/">/</button>
-                <button type="button" class="char-btn" data-char="|">|</button>
-                <button type="button" class="char-btn" data-char="-">-</button>
-              </div>
+
+        <!-- Playlist Detail View -->
+        <div class="playlist-detail hidden" id="playlist-detail">
+          <div class="playlist-header">
+            <div class="playlist-actions">
+              <button class="btn-icon" id="btn-edit-playlist" title="Edit Playlist">
+                ✎
+              </button>
+              <button class="btn-icon btn-danger" id="btn-delete-playlist" title="Delete Playlist">
+                🗑
+              </button>
             </div>
-            <textarea
-              id="song-content-input"
-              rows="20"
-              required
-              placeholder="Enter lyrics with chords (e.g., Am, G, C, Dm7)"
-            ></textarea>
           </div>
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              id="btn-cancel-song"
-            >
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <h2 class="playlist-title" id="playlist-title"></h2>
+          <p class="playlist-description" id="playlist-description"></p>
+          <button class="btn-add-songs" id="btn-add-songs-to-playlist">
+            + Add Songs
+          </button>
+          <ul class="playlist-songs" id="playlist-songs"></ul>
+        </div>
+      </section>
+    </main>
+  </div>
 
-    <!-- Playlist Modal -->
-    <div
-      class="modal hidden"
-      id="playlist-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="playlist-modal-title"
-    >
-      <div class="modal-backdrop"></div>
-      <div class="modal-content">
-        <h3 class="modal-title" id="playlist-modal-title">Add Playlist</h3>
-        <form id="playlist-form">
-          <div class="form-group">
-            <label for="playlist-name-input">Name *</label>
-            <input type="text" id="playlist-name-input" required />
-          </div>
-          <div class="form-group">
-            <label for="playlist-description-input">Description</label>
-            <textarea id="playlist-description-input" rows="3"></textarea>
-          </div>
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              id="btn-cancel-playlist"
-            >
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary">Save</button>
-          </div>
-        </form>
+  <!-- Song Modal -->
+  <div class="modal hidden" id="song-modal" role="dialog" aria-modal="true" aria-labelledby="song-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-song">
+      <div class="import-song-row">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-import-song">
+          ⬆️ Import Song File
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-scan-qr">
+          Scan QR
+        </button>
+        <input type="file" id="import-song-file" accept=".json" class="hidden" />
+        <input type="file" id="scan-qr-image-file" accept="image/*" class="hidden" />
       </div>
-    </div>
-
-    <!-- Add Songs to Playlist Modal -->
-    <div
-      class="modal hidden"
-      id="add-songs-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add Songs to Playlist"
-    >
-      <div class="modal-backdrop"></div>
-      <div class="modal-content">
-        <h3 class="modal-title">Add Songs to Playlist</h3>
-        <div class="song-selector" id="song-selector"></div>
+      <div class="scan-qr-panel hidden" id="scan-qr-panel">
+        <video id="scan-qr-video" playsinline muted></video>
+        <div class="scan-qr-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-stop-scan-qr">
+            Stop Scan
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-scan-qr-image">
+            Scan Image
+          </button>
+        </div>
+        <p class="scan-qr-help">
+          Point the camera to a song QR code to auto-fill this form.
+        </p>
+      </div>
+      <h3 class="modal-title" id="song-modal-title">Add Song</h3>
+      <form id="song-form">
+        <div class="form-group">
+          <label for="song-title-input">Title *</label>
+          <input type="text" id="song-title-input" required />
+        </div>
+        <div class="form-group">
+          <label for="song-artist-input">Artist</label>
+          <input type="text" id="song-artist-input" />
+        </div>
+        <div class="form-group form-group-chords">
+          <div class="label-with-buttons">
+            <label for="song-content-input">Lyrics & Chords *</label>
+            <div class="char-buttons">
+              <button type="button" class="char-btn" data-char="#">#</button>
+              <button type="button" class="char-btn" data-char="/">/</button>
+              <button type="button" class="char-btn" data-char="|">|</button>
+              <button type="button" class="char-btn" data-char="-">-</button>
+            </div>
+          </div>
+          <textarea id="song-content-input" rows="20" required
+            placeholder="Enter lyrics with chords (e.g., Am, G, C, Dm7)"></textarea>
+        </div>
         <div class="modal-actions">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            id="btn-cancel-add-songs"
-          >
+          <button type="button" class="btn btn-secondary" id="btn-cancel-song">
             Cancel
           </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            id="btn-confirm-add-songs"
-          >
-            Add Selected
-          </button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
-      </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Confirm Delete Modal -->
-    <div
-      class="modal hidden"
-      id="confirm-modal"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-message"
-    >
-      <div class="modal-backdrop"></div>
-      <div class="modal-content modal-confirm">
-        <h3 class="modal-title">Confirm Delete</h3>
-        <p id="confirm-message">Are you sure you want to delete this item?</p>
+  <!-- Playlist Modal -->
+  <div class="modal hidden" id="playlist-modal" role="dialog" aria-modal="true" aria-labelledby="playlist-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 class="modal-title" id="playlist-modal-title">Add Playlist</h3>
+      <form id="playlist-form">
+        <div class="form-group">
+          <label for="playlist-name-input">Name *</label>
+          <input type="text" id="playlist-name-input" required />
+        </div>
+        <div class="form-group">
+          <label for="playlist-description-input">Description</label>
+          <textarea id="playlist-description-input" rows="3"></textarea>
+        </div>
         <div class="modal-actions">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            id="btn-cancel-confirm"
-          >
+          <button type="button" class="btn btn-secondary" id="btn-cancel-playlist">
             Cancel
           </button>
-          <button type="button" class="btn btn-danger" id="btn-confirm-delete">
-            Delete
-          </button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Songs to Playlist Modal -->
+  <div class="modal hidden" id="add-songs-modal" role="dialog" aria-modal="true" aria-label="Add Songs to Playlist">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 class="modal-title">Add Songs to Playlist</h3>
+      <div class="song-selector" id="song-selector"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-add-songs">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-add-songs">
+          Add Selected
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Toast Notifications -->
-    <div
-      class="toast-container"
-      id="toast-container"
-      aria-live="polite"
-      aria-atomic="true"
-    ></div>
-
-    <!-- Undo Toast (separate for undo actions) -->
-    <div class="undo-toast hidden" id="undo-toast" role="alert">
-      <span id="undo-toast-message">Item deleted</span>
-      <button class="btn-undo" id="btn-undo">Undo</button>
+  <!-- Confirm Delete Modal -->
+  <div class="modal hidden" id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-message">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-confirm">
+      <h3 class="modal-title">Confirm Delete</h3>
+      <p id="confirm-message">Are you sure you want to delete this item?</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-confirm">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-delete">
+          Delete
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Screen reader announcements -->
-    <div class="sr-only" aria-live="assertive" id="sr-announcements"></div>
+  <!-- Share Song QR Modal -->
+  <div class="modal hidden" id="share-qr-modal" role="dialog" aria-modal="true" aria-labelledby="share-qr-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-confirm share-qr-content">
+      <h3 class="modal-title" id="share-qr-title">Share Song via QR</h3>
+      <div class="share-qr-canvas-wrap">
+        <canvas id="share-qr-canvas" width="260" height="260"></canvas>
+      </div>
+      <p class="share-qr-help" id="share-qr-help">
+        Open Add Song and tap Scan QR on another device.
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btn-close-share-qr">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 
-    <!-- Firebase SDK -->
-    <script
-      defer
-      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"
-    ></script>
-    <script
-      defer
-      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"
-    ></script>
-    <script
-      defer
-      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"
-    ></script>
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-    <!-- App Scripts -->
-    <script defer src="js/firebase-config.js?v=1.0.2"></script>
-    <script defer src="js/sync-service.js?v=1.0.2"></script>
-    <script defer src="js/app.js?v=1.0.2"></script>
+  <!-- Undo Toast (separate for undo actions) -->
+  <div class="undo-toast hidden" id="undo-toast" role="alert">
+    <span id="undo-toast-message">Item deleted</span>
+    <button class="btn-undo" id="btn-undo">Undo</button>
+  </div>
 
-    <!-- Service Worker registration for offline support -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("./sw.js").then(function (reg) {
-            // Listen for SW update messages
-            navigator.serviceWorker.addEventListener(
-              "message",
-              function (event) {
-                if (event.data && event.data.type === "SW_UPDATED") {
-                  var banner = document.getElementById("update-banner");
-                  if (banner) banner.classList.remove("hidden");
-                }
-              },
-            );
-          });
+  <!-- Screen reader announcements -->
+  <div class="sr-only" aria-live="assertive" id="sr-announcements"></div>
+
+  <!-- Firebase SDK -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+  <!-- App Scripts -->
+  <script defer src="js/firebase-config.js?v=1.0.2"></script>
+  <script defer src="js/sync-service.js?v=1.0.2"></script>
+  <script defer src="js/app.js?v=1.0.2"></script>
+
+  <!-- Service Worker registration for offline support -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./sw.js").then(function (reg) {
+          // Listen for SW update messages
+          navigator.serviceWorker.addEventListener(
+            "message",
+            function (event) {
+              if (event.data && event.data.type === "SW_UPDATED") {
+                var banner = document.getElementById("update-banner");
+                if (banner) banner.classList.remove("hidden");
+              }
+            },
+          );
         });
-      }
-    </script>
-  </body>
+      });
+    }
+  </script>
+</body>
+
 </html>
