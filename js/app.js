@@ -12,7 +12,10 @@
   
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
-    PLAYLISTS: 'chord-library-playlists'
+    PLAYLISTS: 'chord-library-playlists',
+    FONT_SIZE: 'chord-library-font-size',
+    THEME: 'chord-library-theme',
+    SIDEBAR_SCROLL: 'chord-library-sidebar-scroll'
   };
 
   // Musical notes for transposition
@@ -62,6 +65,8 @@
   let confirmCallback = null;
   let currentFontSize = 14; // Default font size for chord content
   let viewingFromPlaylistId = null; // Track which playlist we're viewing from (for auto-add)
+  let undoTimer = null;
+  let undoData = null; // { type, item, playlists?, songs? }
 
   // ================================================
   // DOM Elements
@@ -98,8 +103,6 @@
     appTitle: $('app-title'),
     
     // Song Detail
-    songTitle: $('song-title'),
-    songArtist: $('song-artist'),
     songContent: $('song-content'),
     
     // Playlist Detail
@@ -152,7 +155,11 @@
         SyncService.onDataChanged('songs', songs);
       }
     } catch (e) {
-      console.error('Error saving songs:', e);
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        showToast('Storage full — unable to save. Delete some songs to free space.', 'error');
+      } else {
+        console.error('Error saving songs:', e);
+      }
     }
   }
 
@@ -163,7 +170,11 @@
         SyncService.onDataChanged('playlists', playlists);
       }
     } catch (e) {
-      console.error('Error saving playlists:', e);
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        showToast('Storage full — unable to save. Delete some items to free space.', 'error');
+      } else {
+        console.error('Error saving playlists:', e);
+      }
     }
   }
 
@@ -209,7 +220,15 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    return escaped.replace(CHORD_RE(), '<span class="chord">$&</span>');
+    // Highlight chords
+    let result = escaped.replace(CHORD_RE(), '<span class="chord">$&</span>');
+    // Highlight bracketed commands like [to chorus], [intro], etc.
+    result = result.replace(/\[([^\]]+)\]/g, (match, inner) => {
+      // If the bracket content is just a chord (A-G with optional #/b and quality), don't re-highlight
+      if (/^[A-G][#b]?/.test(inner) && inner.length <= 6) return match;
+      return '<span class="bracket-command">' + match + '</span>';
+    });
+    return result;
   }
 
   // ================================================
@@ -284,7 +303,8 @@
     let filtered = query
       ? songs.filter(s => 
           s.title.toLowerCase().includes(query) ||
-          (s.artist && s.artist.toLowerCase().includes(query)))
+          (s.artist && s.artist.toLowerCase().includes(query)) ||
+          (s.content && s.content.toLowerCase().includes(query)))
       : songs;
     
     // Apply sorting
@@ -345,20 +365,26 @@
     dom.songDetail.classList.remove('hidden');
     dom.playlistDetail.classList.add('hidden');
 
-    // Update header title: show playlist name when viewing from a playlist, otherwise default
-    if (selectedPlaylistId && viewingPlaylistSongIndex >= 0) {
-      const playlist = playlists.find(p => p.id === selectedPlaylistId);
-      dom.appTitle.textContent = playlist ? playlist.name : 'Chord Library';
-    } else {
-      dom.appTitle.textContent = 'Chord Library';
-    }
-
-    // Update song info
+    // Move song title into header bar for compact view
     const transposedTitle = transposeSteps !== 0 
       ? `${song.title} (${transposeSteps > 0 ? '+' : ''}${transposeSteps})`
       : song.title;
-    dom.songTitle.textContent = transposedTitle;
-    dom.songArtist.textContent = song.artist || '';
+    const artistSuffix = song.artist ? ` — ${song.artist}` : '';
+    dom.appTitle.textContent = transposedTitle + artistSuffix;
+    dom.appTitle.title = transposedTitle + artistSuffix;
+
+    // Show/hide back-to-playlist button
+    const backBtn = document.getElementById('btn-back-playlist');
+    const backLabel = document.getElementById('btn-back-playlist-label');
+    if (selectedPlaylistId && viewingPlaylistSongIndex >= 0) {
+      const playlist = playlists.find(p => p.id === selectedPlaylistId);
+      if (backBtn) {
+        backBtn.classList.remove('hidden');
+        if (backLabel) backLabel.textContent = playlist ? playlist.name : 'Playlist';
+      }
+    } else {
+      if (backBtn) backBtn.classList.add('hidden');
+    }
 
     // Update transpose display
     dom.transposeValue.textContent = transposeSteps;
@@ -465,9 +491,13 @@
       viewingFromPlaylistId = null;
     }
     
+    saveSidebarScroll();
     renderSongList();
     renderSongDetail();
     closeSidebar();
+    
+    // Announce to screen readers
+    if (song) announce(`Viewing ${song.title}`);
   }
 
   function openSongModal(songId = null) {
@@ -486,12 +516,12 @@
       dom.songForm.reset();
     }
     
-    dom.songModal.classList.remove('hidden');
+    openModalWithFocusTrap(dom.songModal);
     setTimeout(() => dom.songTitleInput.focus(), 100);
   }
 
   function closeSongModal() {
-    dom.songModal.classList.add('hidden');
+    closeModalWithFocusTrap(dom.songModal);
     editingSongId = null;
     dom.songForm.reset();
   }
@@ -557,11 +587,10 @@
     openConfirmModal(
       `Are you sure you want to delete "${song.title}"?`,
       () => {
-        // Sync tombstone before removing locally
-        if (typeof SyncService !== 'undefined') {
-          SyncService.onItemDeleted('songs', song);
-        }
-
+        // Store undo data before deleting
+        const removedSong = { ...song };
+        const playlistBackups = playlists.map(p => ({ id: p.id, songIds: [...p.songIds] }));
+        
         songs = songs.filter(s => s.id !== id);
         
         // Remove from all playlists
@@ -580,6 +609,32 @@
         renderSongList();
         renderSongDetail();
         renderPlaylistList();
+        
+        // Show undo toast
+        showUndoToast(`"${removedSong.title}" deleted`, () => {
+          // Undo: restore song and playlist references
+          songs.push(removedSong);
+          playlistBackups.forEach(backup => {
+            const playlist = playlists.find(p => p.id === backup.id);
+            if (playlist) playlist.songIds = backup.songIds;
+          });
+          saveSongs();
+          savePlaylists();
+          selectedSongId = removedSong.id;
+          transposeSteps = removedSong.transposeSteps || 0;
+          renderSongList();
+          renderSongDetail();
+          renderPlaylistList();
+        });
+
+        // Sync tombstone after undo window expires
+        setTimeout(() => {
+          if (!songs.find(s => s.id === id)) {
+            if (typeof SyncService !== 'undefined') {
+              SyncService.onItemDeleted('songs', removedSong);
+            }
+          }
+        }, 6000);
       }
     );
   }
@@ -615,12 +670,12 @@
       dom.playlistForm.reset();
     }
     
-    dom.playlistModal.classList.remove('hidden');
+    openModalWithFocusTrap(dom.playlistModal);
     setTimeout(() => dom.playlistNameInput.focus(), 100);
   }
 
   function closePlaylistModal() {
-    dom.playlistModal.classList.add('hidden');
+    closeModalWithFocusTrap(dom.playlistModal);
     editingPlaylistId = null;
     dom.playlistForm.reset();
   }
@@ -666,11 +721,8 @@
     openConfirmModal(
       `Are you sure you want to delete playlist "${playlist.name}"?`,
       () => {
-        // Sync tombstone before removing locally
-        if (typeof SyncService !== 'undefined') {
-          SyncService.onItemDeleted('playlists', playlist);
-        }
-
+        const removedPlaylist = { ...playlist, songIds: [...playlist.songIds] };
+        
         playlists = playlists.filter(p => p.id !== id);
         savePlaylists();
         
@@ -681,6 +733,24 @@
         renderPlaylistList();
         dom.emptyState.classList.remove('hidden');
         dom.playlistDetail.classList.add('hidden');
+        
+        // Show undo toast
+        showUndoToast(`"${removedPlaylist.name}" deleted`, () => {
+          playlists.push(removedPlaylist);
+          savePlaylists();
+          selectedPlaylistId = removedPlaylist.id;
+          renderPlaylistList();
+          renderPlaylistDetail();
+        });
+
+        // Sync tombstone after undo window expires
+        setTimeout(() => {
+          if (!playlists.find(p => p.id === id)) {
+            if (typeof SyncService !== 'undefined') {
+              SyncService.onItemDeleted('playlists', removedPlaylist);
+            }
+          }
+        }, 6000);
       }
     );
   }
@@ -701,11 +771,11 @@
       </label>
     `).join('');
     
-    dom.addSongsModal.classList.remove('hidden');
+    openModalWithFocusTrap(dom.addSongsModal);
   }
 
   function closeAddSongsModal() {
-    dom.addSongsModal.classList.add('hidden');
+    closeModalWithFocusTrap(dom.addSongsModal);
   }
 
   function confirmAddSongs() {
@@ -719,7 +789,10 @@
       .filter(cb => cb.checked)
       .map(cb => cb.value);
     
-    playlist.songIds = selectedIds;
+    // Preserve existing order (oldest first), append newly added at the end
+    const existing = playlist.songIds.filter(id => selectedIds.includes(id));
+    const added = selectedIds.filter(id => !playlist.songIds.includes(id));
+    playlist.songIds = [...existing, ...added];
     playlist.updatedAt = Date.now();
     
     savePlaylists();
@@ -877,11 +950,11 @@
   function openConfirmModal(message, callback) {
     dom.confirmMessage.textContent = message;
     confirmCallback = callback;
-    dom.confirmModal.classList.remove('hidden');
+    openModalWithFocusTrap(dom.confirmModal);
   }
 
   function closeConfirmModal() {
-    dom.confirmModal.classList.add('hidden');
+    closeModalWithFocusTrap(dom.confirmModal);
     confirmCallback = null;
   }
 
@@ -901,6 +974,309 @@
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Show a toast notification (used when SyncService is not available)
+   */
+  function showToast(message, type) {
+    if (typeof SyncService !== 'undefined' && SyncService.showToast) {
+      SyncService.showToast(message, type);
+      return;
+    }
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + (type || 'info');
+    toast.textContent = message;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+    }, 3000);
+  }
+
+  /**
+   * Show undo toast with a callback
+   */
+  function showUndoToast(message, undoCallback) {
+    const toast = document.getElementById('undo-toast');
+    const msgEl = document.getElementById('undo-toast-message');
+    const undoBtn = document.getElementById('btn-undo');
+    if (!toast) return;
+
+    // Clear previous timer
+    if (undoTimer) {
+      clearTimeout(undoTimer);
+      undoTimer = null;
+    }
+
+    msgEl.textContent = message;
+    toast.classList.remove('hidden');
+
+    const cleanup = () => {
+      toast.classList.add('hidden');
+      undoBtn.removeEventListener('click', handleUndo);
+      undoTimer = null;
+    };
+
+    const handleUndo = () => {
+      if (undoTimer) clearTimeout(undoTimer);
+      undoCallback();
+      cleanup();
+      showToast('Restored', 'success');
+    };
+
+    undoBtn.addEventListener('click', handleUndo, { once: true });
+    undoTimer = setTimeout(cleanup, 5000);
+  }
+
+  /**
+   * Export all data as JSON download
+   */
+  function exportData() {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      songs: songs,
+      playlists: playlists
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chord-library-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Data exported', 'success');
+  }
+
+  /**
+   * Export a single song as JSON download
+   */
+  function exportSingleSong(songId) {
+    const song = songs.find(s => s.id === songId);
+    if (!song) return;
+    const data = {
+      version: 1,
+      type: 'single-song',
+      exportedAt: new Date().toISOString(),
+      song: song
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = song.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    a.download = `${safeName}.chord.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`"${song.title}" exported`, 'success');
+  }
+
+  /**
+   * Import a single song from a JSON file
+   */
+  function importSingleSong(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        let imported = null;
+
+        if (data.type === 'single-song' && data.song) {
+          imported = data.song;
+        } else if (data.songs && Array.isArray(data.songs) && data.songs.length > 0) {
+          // Full backup file — just take the first song
+          imported = data.songs[0];
+        } else if (data.title && data.content) {
+          // Raw song object
+          imported = data;
+        }
+
+        if (!imported || !imported.title || !imported.content) {
+          showToast('Invalid song file', 'error');
+          return;
+        }
+
+        // Populate the song form with the imported data
+        dom.songTitleInput.value = imported.title || '';
+        dom.songArtistInput.value = imported.artist || '';
+        dom.songContentInput.value = imported.content || '';
+        showToast('Song loaded into form — review and save', 'success');
+      } catch (err) {
+        showToast('Failed to parse file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /**
+   * Import data from a JSON file
+   */
+  function importData(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.songs || !Array.isArray(data.songs)) {
+          showToast('Invalid backup file', 'error');
+          return;
+        }
+        
+        // Merge: add new items, update existing if newer
+        let addedSongs = 0, addedPlaylists = 0;
+        
+        data.songs.forEach(imported => {
+          const existing = songs.find(s => s.id === imported.id);
+          if (!existing) {
+            songs.push(imported);
+            addedSongs++;
+          } else if (imported.updatedAt > (existing.updatedAt || 0)) {
+            Object.assign(existing, imported);
+            addedSongs++;
+          }
+        });
+        
+        if (data.playlists && Array.isArray(data.playlists)) {
+          data.playlists.forEach(imported => {
+            const existing = playlists.find(p => p.id === imported.id);
+            if (!existing) {
+              playlists.push(imported);
+              addedPlaylists++;
+            } else if (imported.updatedAt > (existing.updatedAt || 0)) {
+              Object.assign(existing, imported);
+              addedPlaylists++;
+            }
+          });
+        }
+        
+        saveSongs();
+        savePlaylists();
+        renderSongList();
+        renderPlaylistList();
+        showToast(`Imported ${addedSongs} songs, ${addedPlaylists} playlists`, 'success');
+      } catch (err) {
+        showToast('Failed to parse file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /**
+   * Toggle between light and dark themes
+   */
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem(STORAGE_KEYS.THEME, next);
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = next === 'light' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  }
+
+  /**
+   * Load saved theme preference
+   */
+  function loadTheme() {
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      const icon = document.getElementById('theme-icon');
+      if (icon) icon.textContent = '\u2600\uFE0F';
+    }
+  }
+
+  /**
+   * Focus trap for modal dialogs
+   */
+  function trapFocus(modalEl) {
+    const focusableSelectors = 'button:not([disabled]):not(.hidden), input:not([disabled]):not(.hidden), select:not([disabled]):not(.hidden), textarea:not([disabled]):not(.hidden), [tabindex]:not([tabindex=\"-1\"])';
+    const focusables = modalEl.querySelectorAll(focusableSelectors);
+    if (focusables.length === 0) return null;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    function handler(e) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    modalEl.addEventListener('keydown', handler);
+    first.focus();
+    return handler; // return so we can remove it later
+  }
+
+  let activeFocusTrapHandler = null;
+  let previouslyFocusedElement = null;
+
+  function openModalWithFocusTrap(modalEl) {
+    previouslyFocusedElement = document.activeElement;
+    modalEl.classList.remove('hidden');
+    // Small delay to allow DOM to render
+    setTimeout(() => {
+      activeFocusTrapHandler = trapFocus(modalEl.querySelector('.modal-content'));
+    }, 50);
+  }
+
+  function closeModalWithFocusTrap(modalEl) {
+    modalEl.classList.add('hidden');
+    if (activeFocusTrapHandler && modalEl.querySelector('.modal-content')) {
+      modalEl.querySelector('.modal-content').removeEventListener('keydown', activeFocusTrapHandler);
+      activeFocusTrapHandler = null;
+    }
+    if (previouslyFocusedElement) {
+      previouslyFocusedElement.focus();
+      previouslyFocusedElement = null;
+    }
+  }
+
+  /**
+   * Save sidebar scroll position
+   */
+  function saveSidebarScroll() {
+    try {
+      const scrollTop = dom.songList.scrollTop;
+      sessionStorage.setItem(STORAGE_KEYS.SIDEBAR_SCROLL, scrollTop.toString());
+    } catch(e) { /* ignore */ }
+  }
+
+  /**
+   * Restore sidebar scroll position
+   */
+  function restoreSidebarScroll() {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEYS.SIDEBAR_SCROLL);
+      if (saved) dom.songList.scrollTop = parseInt(saved, 10);
+    } catch(e) { /* ignore */ }
+  }
+
+  /**
+   * Announce to screen readers
+   */
+  function announce(message) {
+    const el = document.getElementById('sr-announcements');
+    if (el) {
+      el.textContent = '';
+      setTimeout(() => { el.textContent = message; }, 100);
+    }
   }
 
   /**
@@ -993,9 +1369,10 @@
       }
     });
     
-    // Font size selector
+    // Font size selector with persistence
     dom.fontSizeSelect.addEventListener('change', (e) => {
       currentFontSize = parseInt(e.target.value, 10);
+      localStorage.setItem(STORAGE_KEYS.FONT_SIZE, currentFontSize.toString());
       if (selectedSongId) {
         renderSongDetail();
       }
@@ -1022,7 +1399,23 @@
     
     // Add song button
     $('btn-add-song').addEventListener('click', () => openSongModal());
+
+    // Back to playlist button
+    $('btn-back-playlist').addEventListener('click', () => {
+      if (selectedPlaylistId) {
+        viewingPlaylistSongIndex = -1;
+        selectedSongId = null;
+        renderPlaylistDetail();
+        renderPlaylistList();
+        dom.appTitle.textContent = 'Chord Library';
+      }
+    });
     
+    // Export song button
+    $('btn-export-song').addEventListener('click', () => {
+      if (selectedSongId) exportSingleSong(selectedSongId);
+    });
+
     // Edit song button
     $('btn-edit-song').addEventListener('click', () => {
       if (selectedSongId) openSongModal(selectedSongId);
@@ -1037,6 +1430,19 @@
     dom.songForm.addEventListener('submit', saveSong);
     $('btn-cancel-song').addEventListener('click', closeSongModal);
     // Note: Backdrop click intentionally not added to prevent accidental closure
+
+    // Import single song in song modal
+    const btnImportSong = $('btn-import-song');
+    const importSongFile = $('import-song-file');
+    if (btnImportSong && importSongFile) {
+      btnImportSong.addEventListener('click', () => importSongFile.click());
+      importSongFile.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          importSingleSong(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
     
     // Character insert buttons
     $$('.char-btn').forEach(btn => {
@@ -1101,6 +1507,54 @@
         }
       }
     });
+
+    // Theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // Export data
+    const btnExport = document.getElementById('btn-export-data');
+    if (btnExport) {
+      btnExport.addEventListener('click', () => {
+        document.getElementById('user-dropdown').classList.remove('visible');
+        exportData();
+      });
+    }
+
+    // Import data
+    const btnImport = document.getElementById('btn-import-data');
+    const importFileInput = document.getElementById('import-file-input');
+    if (btnImport && importFileInput) {
+      btnImport.addEventListener('click', () => {
+        document.getElementById('user-dropdown').classList.remove('visible');
+        importFileInput.click();
+      });
+      importFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          importData(e.target.files[0]);
+          e.target.value = ''; // Reset so same file can be imported again
+        }
+      });
+    }
+
+    // SW update banner
+    const btnUpdateRefresh = document.getElementById('btn-update-refresh');
+    const btnUpdateDismiss = document.getElementById('btn-update-dismiss');
+    if (btnUpdateRefresh) {
+      btnUpdateRefresh.addEventListener('click', () => location.reload());
+    }
+    if (btnUpdateDismiss) {
+      btnUpdateDismiss.addEventListener('click', () => {
+        document.getElementById('update-banner').classList.add('hidden');
+      });
+    }
+
+    // Save sidebar scroll position on scroll
+    dom.songList.addEventListener('scroll', () => {
+      saveSidebarScroll();
+    }, { passive: true });
   }
 
   // ================================================
@@ -1109,15 +1563,25 @@
   
   function init() {
     loadData();
+    loadTheme();
     createSwipeIndicators();
     renderSongList();
     renderPlaylistList();
     initEventListeners();
     
-    // Initialize font size from dropdown
-    if (dom.fontSizeSelect) {
+    // Load persisted font size
+    const savedFontSize = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
+    if (savedFontSize) {
+      currentFontSize = parseInt(savedFontSize, 10) || 14;
+      if (dom.fontSizeSelect) {
+        dom.fontSizeSelect.value = currentFontSize.toString();
+      }
+    } else if (dom.fontSizeSelect) {
       currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 14;
     }
+    
+    // Restore sidebar scroll position
+    restoreSidebarScroll();
     
     // Show empty state initially
     dom.emptyState.classList.remove('hidden');

@@ -49,7 +49,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// ─── Activate: remove stale caches ───────────────────────────────────────────
+// ─── Activate: remove stale caches & notify clients ──────────────────────────
 self.addEventListener('activate', event => {
   const currentCaches = new Set([STATIC_CACHE, CDN_CACHE]);
   event.waitUntil(
@@ -63,6 +63,14 @@ self.addEventListener('activate', event => {
         )
       )
       .then(() => self.clients.claim())
+      .then(() => {
+        // Notify all clients that a new version is active
+        return self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ type: 'SW_UPDATED' });
+          });
+        });
+      })
   );
 });
 

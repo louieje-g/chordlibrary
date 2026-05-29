@@ -7,11 +7,24 @@ const SyncService = (function () {
   'use strict';
 
   // ================================================
+  // Constants (shared with app.js)
+  // ================================================
+
+  const STORAGE_KEYS = {
+    SONGS: 'chord-library-songs',
+    PLAYLISTS: 'chord-library-playlists',
+    SYNC_QUEUE: 'chord-library-sync-queue',
+    LAST_SYNCED: 'chord-library-last-synced'
+  };
+
+  const MAX_BATCH_SIZE = 499; // Firestore limit is 500 operations per batch
+
+  // ================================================
   // State
   // ================================================
 
-  const SYNC_QUEUE_KEY = 'chord-library-sync-queue';
-  const LAST_SYNCED_KEY = 'chord-library-last-synced';
+  const SYNC_QUEUE_KEY = STORAGE_KEYS.SYNC_QUEUE;
+  const LAST_SYNCED_KEY = STORAGE_KEYS.LAST_SYNCED;
 
   let db = null;
   let auth = null;
@@ -251,6 +264,29 @@ const SyncService = (function () {
       });
   }
 
+  /**
+   * Commit items in chunked batches to respect Firestore's 500-operation limit.
+   */
+  function commitInBatches(collectionRef, items) {
+    if (items.length === 0) return Promise.resolve();
+
+    var chunks = [];
+    for (var i = 0; i < items.length; i += MAX_BATCH_SIZE) {
+      chunks.push(items.slice(i, i + MAX_BATCH_SIZE));
+    }
+
+    return chunks.reduce(function (chain, chunk) {
+      return chain.then(function () {
+        var batch = db.batch();
+        chunk.forEach(function (item) {
+          var docRef = collectionRef.doc(item.id);
+          batch.set(docRef, item);
+        });
+        return batch.commit();
+      });
+    }, Promise.resolve());
+  }
+
   function syncCollection(type, userId) {
     var collectionRef = db.collection('users').doc(userId).collection(type);
     var localItems = getLocalData(type);
@@ -258,8 +294,6 @@ const SyncService = (function () {
     return collectionRef.get().then(function (snapshot) {
       var remoteItems = [];
       snapshot.forEach(function (doc) {
-        // Create a new object with the document ID included
-        // (Firestore stores ID separately from document data)
         var data = Object.assign({}, doc.data(), { id: doc.id });
         remoteItems.push(data);
       });
@@ -269,16 +303,8 @@ const SyncService = (function () {
       // Save merged data locally
       setLocalData(type, merged.local);
 
-      // Push changes to Firestore
-      var batch = db.batch();
-      merged.toUpload.forEach(function (item) {
-        var docRef = collectionRef.doc(item.id);
-        batch.set(docRef, item);
-      });
-
-      if (merged.toUpload.length > 0) {
-        return batch.commit();
-      }
+      // Push changes to Firestore in chunked batches
+      return commitInBatches(collectionRef, merged.toUpload);
     });
   }
 
@@ -367,13 +393,7 @@ const SyncService = (function () {
     var userId = currentUser.uid;
     var collectionRef = db.collection('users').doc(userId).collection(type);
 
-    var batch = db.batch();
-    data.forEach(function (item) {
-      var docRef = collectionRef.doc(item.id);
-      batch.set(docRef, item);
-    });
-
-    batch.commit()
+    commitInBatches(collectionRef, data)
       .then(function () {
         setStatus('idle');
       })
@@ -443,17 +463,23 @@ const SyncService = (function () {
     if (queue.length === 0 || !currentUser || !db) return Promise.resolve();
 
     var userId = currentUser.uid;
-    var batch = db.batch();
 
+    // Group all items by type, then commit in batches
+    var grouped = {};
     queue.forEach(function (entry) {
-      var collectionRef = db.collection('users').doc(userId).collection(entry.type);
+      if (!grouped[entry.type]) grouped[entry.type] = [];
       entry.data.forEach(function (item) {
-        var docRef = collectionRef.doc(item.id);
-        batch.set(docRef, item);
+        grouped[entry.type].push(item);
       });
     });
 
-    return batch.commit()
+    var typeKeys = Object.keys(grouped);
+    return typeKeys.reduce(function (chain, type) {
+      return chain.then(function () {
+        var collectionRef = db.collection('users').doc(userId).collection(type);
+        return commitInBatches(collectionRef, grouped[type]);
+      });
+    }, Promise.resolve())
       .then(function () {
         localStorage.removeItem(SYNC_QUEUE_KEY);
       })
@@ -510,7 +536,7 @@ const SyncService = (function () {
 
   function getLocalData(type) {
     try {
-      var key = type === 'songs' ? 'chord-library-songs' : 'chord-library-playlists';
+      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.PLAYLISTS;
       var raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
@@ -520,10 +546,11 @@ const SyncService = (function () {
 
   function setLocalData(type, data) {
     try {
-      var key = type === 'songs' ? 'chord-library-songs' : 'chord-library-playlists';
+      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.PLAYLISTS;
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
       console.error('SyncService: Failed to write local data:', e);
+      showToast('Storage full — some data may not be saved', 'error');
     }
 
     // Notify app.js to reload UI
