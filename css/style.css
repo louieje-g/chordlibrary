@@ -29,8 +29,10 @@
   --spacing-xl: 32px;
 
   /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  --font-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    sans-serif;
+  --font-mono: "SF Mono", "Consolas", "Monaco", monospace;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
@@ -160,7 +162,7 @@ body {
 
 .hamburger-icon::before,
 .hamburger-icon::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   width: 100%;
@@ -231,7 +233,9 @@ body {
   z-index: 40;
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+  transition:
+    opacity var(--transition-normal),
+    visibility var(--transition-normal);
 }
 
 .sidebar-overlay.visible {
@@ -268,7 +272,7 @@ body {
 }
 
 .tab-btn.active::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -806,7 +810,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm)
+    var(--spacing-md);
   background: var(--bg-secondary);
   border-radius: 8px;
   margin-bottom: var(--spacing-sm);
@@ -1280,7 +1285,10 @@ body {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-8px);
-  transition: opacity var(--transition-fast), visibility var(--transition-fast), transform var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .user-dropdown.visible {
@@ -1317,6 +1325,10 @@ body {
   border-radius: 8px;
 }
 
+#btn-import-data {
+  margin-top: var(--spacing-sm);
+}
+
 /* Toast Notifications */
 .toast-container {
   position: fixed;
@@ -1342,7 +1354,9 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
   pointer-events: auto;
   white-space: nowrap;
 }
@@ -1422,7 +1436,6 @@ body {
    Desktop Breakpoint (768px+)
    ================================================ */
 @media (min-width: 768px) {
-
   /* Sidebar always visible */
   .sidebar {
     position: relative;
@@ -1466,7 +1479,6 @@ body {
 
 /* Print Styles */
 @media print {
-
   .app-header,
   .sidebar,
   .song-nav,

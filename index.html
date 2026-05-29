@@ -6,7 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#1a1a2e" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://firebaseinstallations.googleapis.com https://www.googleapis.com; img-src 'self' https: data:; frame-src https://accounts.google.com https://*.firebaseapp.com https://apis.google.com;" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://firebaseinstallations.googleapis.com https://www.googleapis.com; img-src 'self' https: data:; frame-src https://accounts.google.com https://*.firebaseapp.com https://apis.google.com;"
+    />
     <title>Chord Library</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -26,7 +29,12 @@
           <span class="hamburger-icon" aria-hidden="true"></span>
         </button>
         <h1 class="app-title" id="app-title">Chord Library</h1>
-        <button class="btn-icon theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
+        <button
+          class="btn-icon theme-toggle"
+          id="theme-toggle"
+          aria-label="Toggle light/dark theme"
+          title="Toggle Theme"
+        >
           <span id="theme-icon">🌙</span>
         </button>
         <div class="user-account">
@@ -55,31 +63,57 @@
               Sign in with Google
             </button>
             <button
-              class="btn btn-secondary user-dropdown-btn hidden"
+              class="btn btn-danger user-dropdown-btn hidden"
               id="btn-sign-out"
             >
               Sign out
             </button>
             <hr class="dropdown-divider" />
-            <button class="btn btn-secondary user-dropdown-btn" id="btn-export-data">
+            <button
+              class="btn btn-secondary user-dropdown-btn"
+              id="btn-export-data"
+            >
               Export Data
             </button>
-            <button class="btn btn-secondary user-dropdown-btn" id="btn-import-data">
+            <button
+              class="btn btn-secondary user-dropdown-btn"
+              id="btn-import-data"
+            >
               Import Data
             </button>
-            <input type="file" id="import-file-input" accept=".json" class="hidden" />
+            <input
+              type="file"
+              id="import-file-input"
+              accept=".json"
+              class="hidden"
+            />
           </div>
         </div>
       </header>
 
       <!-- Floating Add Button -->
-      <button class="fab" id="btn-add-song" aria-label="Add Song" title="Add Song">+</button>
+      <button
+        class="fab"
+        id="btn-add-song"
+        aria-label="Add Song"
+        title="Add Song"
+      >
+        +
+      </button>
 
       <!-- SW Update Banner -->
       <div class="update-banner hidden" id="update-banner" role="alert">
         <span>A new version is available</span>
-        <button class="btn btn-primary btn-sm" id="btn-update-refresh">Refresh</button>
-        <button class="btn-dismiss" id="btn-update-dismiss" aria-label="Dismiss">&times;</button>
+        <button class="btn btn-primary btn-sm" id="btn-update-refresh">
+          Refresh
+        </button>
+        <button
+          class="btn-dismiss"
+          id="btn-update-dismiss"
+          aria-label="Dismiss"
+        >
+          &times;
+        </button>
       </div>
 
       <!-- Main Content -->
@@ -146,11 +180,18 @@
           <div class="song-detail hidden" id="song-detail">
             <!-- Back to playlist + navigation hint -->
             <div class="song-detail-top">
-              <button class="btn-back-playlist hidden" id="btn-back-playlist" aria-label="Back to playlist" title="Back to playlist">
+              <button
+                class="btn-back-playlist hidden"
+                id="btn-back-playlist"
+                aria-label="Back to playlist"
+                title="Back to playlist"
+              >
                 ← <span id="btn-back-playlist-label">Playlist</span>
               </button>
               <div class="song-nav-hint hidden" id="song-nav-hint">
-                <span class="nav-hint-text">Swipe left/right • <span id="nav-hint-info"></span></span>
+                <span class="nav-hint-text"
+                  >Swipe left/right • <span id="nav-hint-info"></span
+                ></span>
               </div>
             </div>
 
@@ -165,7 +206,12 @@
                 >
                   −
                 </button>
-                <span class="transpose-value" id="transpose-value" aria-live="polite">0</span>
+                <span
+                  class="transpose-value"
+                  id="transpose-value"
+                  aria-live="polite"
+                  >0</span
+                >
                 <button
                   class="btn-tool"
                   id="btn-transpose-up"
@@ -184,17 +230,31 @@
                 </button>
               </div>
               <div class="song-toolbar-right">
-                <select class="font-size-select" id="font-size-select" title="Font Size">
+                <select
+                  class="font-size-select"
+                  id="font-size-select"
+                  title="Font Size"
+                >
                   <option value="10">10</option>
                   <option value="12">12</option>
                   <option value="14" selected>14</option>
                   <option value="16">16</option>
                   <option value="18">18</option>
                 </select>
-                <button class="btn-tool" id="btn-export-song" aria-label="Export Song" title="Export Song">
+                <button
+                  class="btn-tool"
+                  id="btn-export-song"
+                  aria-label="Export Song"
+                  title="Export Song"
+                >
                   ⬇️
                 </button>
-                <button class="btn-tool" id="btn-edit-song" aria-label="Edit Song" title="Edit Song">
+                <button
+                  class="btn-tool"
+                  id="btn-edit-song"
+                  aria-label="Edit Song"
+                  title="Edit Song"
+                >
                   ✎
                 </button>
                 <button
@@ -244,12 +304,29 @@
     </div>
 
     <!-- Song Modal -->
-    <div class="modal hidden" id="song-modal" role="dialog" aria-modal="true" aria-labelledby="song-modal-title">
+    <div
+      class="modal hidden"
+      id="song-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="song-modal-title"
+    >
       <div class="modal-backdrop"></div>
       <div class="modal-content modal-song">
         <div class="import-song-row">
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-import-song">⬆️ Import Song File</button>
-          <input type="file" id="import-song-file" accept=".json" class="hidden" />
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            id="btn-import-song"
+          >
+            ⬆️ Import Song File
+          </button>
+          <input
+            type="file"
+            id="import-song-file"
+            accept=".json"
+            class="hidden"
+          />
         </div>
         <h3 class="modal-title" id="song-modal-title">Add Song</h3>
         <form id="song-form">
@@ -293,7 +370,13 @@
     </div>
 
     <!-- Playlist Modal -->
-    <div class="modal hidden" id="playlist-modal" role="dialog" aria-modal="true" aria-labelledby="playlist-modal-title">
+    <div
+      class="modal hidden"
+      id="playlist-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="playlist-modal-title"
+    >
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <h3 class="modal-title" id="playlist-modal-title">Add Playlist</h3>
@@ -321,7 +404,13 @@
     </div>
 
     <!-- Add Songs to Playlist Modal -->
-    <div class="modal hidden" id="add-songs-modal" role="dialog" aria-modal="true" aria-label="Add Songs to Playlist">
+    <div
+      class="modal hidden"
+      id="add-songs-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add Songs to Playlist"
+    >
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <h3 class="modal-title">Add Songs to Playlist</h3>
@@ -346,7 +435,13 @@
     </div>
 
     <!-- Confirm Delete Modal -->
-    <div class="modal hidden" id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-message">
+    <div
+      class="modal hidden"
+      id="confirm-modal"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-message"
+    >
       <div class="modal-backdrop"></div>
       <div class="modal-content modal-confirm">
         <h3 class="modal-title">Confirm Delete</h3>
@@ -367,7 +462,12 @@
     </div>
 
     <!-- Toast Notifications -->
-    <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <div
+      class="toast-container"
+      id="toast-container"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
 
     <!-- Undo Toast (separate for undo actions) -->
     <div class="undo-toast hidden" id="undo-toast" role="alert">
@@ -379,9 +479,18 @@
     <div class="sr-only" aria-live="assertive" id="sr-announcements"></div>
 
     <!-- Firebase SDK -->
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script
+      defer
+      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"
+    ></script>
+    <script
+      defer
+      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"
+    ></script>
+    <script
+      defer
+      src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"
+    ></script>
 
     <!-- App Scripts -->
     <script defer src="js/firebase-config.js?v=1.0.2"></script>
@@ -390,16 +499,19 @@
 
     <!-- Service Worker registration for offline support -->
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('./sw.js').then(function(reg) {
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js").then(function (reg) {
             // Listen for SW update messages
-            navigator.serviceWorker.addEventListener('message', function(event) {
-              if (event.data && event.data.type === 'SW_UPDATED') {
-                var banner = document.getElementById('update-banner');
-                if (banner) banner.classList.remove('hidden');
-              }
-            });
+            navigator.serviceWorker.addEventListener(
+              "message",
+              function (event) {
+                if (event.data && event.data.type === "SW_UPDATED") {
+                  var banner = document.getElementById("update-banner");
+                  if (banner) banner.classList.remove("hidden");
+                }
+              },
+            );
           });
         });
       }
