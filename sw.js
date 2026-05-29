@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 
@@ -94,36 +94,49 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Same-origin assets → cache-first with network fallback
+  // 3. App shell/documents should be network-first so deployments show up
+  // immediately when online. Fallback to cache for offline use.
+  const acceptHeader = request.headers.get('accept') || '';
+  const isDocumentRequest = request.mode === 'navigate' || acceptHeader.includes('text/html');
+  if (isDocumentRequest) {
+    event.respondWith(networkFirst(request, STATIC_CACHE, './index.html'));
+    return;
+  }
+
+  // 4. Same-origin code assets should prefer network updates.
+  if (url.origin === self.location.origin && (request.destination === 'script' || request.destination === 'style')) {
+    event.respondWith(networkFirst(request, STATIC_CACHE));
+    return;
+  }
+
+  // 5. Other same-origin assets can use stale-while-revalidate.
   if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(request, STATIC_CACHE));
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
   }
 });
 
 // ─── Caching Strategies ──────────────────────────────────────────────────────
 
 /**
- * Cache-first: return cached response immediately; fall back to network and
- * store the result for next time.
+ * Network-first: fetch from network when possible and update cache.
+ * Fall back to cache (and optional offline fallback) when offline.
  */
-function cacheFirst(request, cacheName) {
+function networkFirst(request, cacheName, offlineFallbackUrl) {
   return caches.open(cacheName).then(cache =>
-    cache.match(request).then(cached => {
-      if (cached) return cached;
-
-      return fetch(request)
-        .then(response => {
-          if (response.ok) {
-            cache.put(request, response.clone());
-          }
-          return response;
-        })
-        .catch(() => {
-          // If the network fails and there's no cached entry, try matching
-          // without the query string (handles ?v= versioning mismatches).
+    fetch(request)
+      .then(response => {
+        if (response && response.ok) {
+          cache.put(request, response.clone());
+        }
+        return response;
+      })
+      .catch(() =>
+        cache.match(request).then(cached => {
+          if (cached) return cached;
+          if (offlineFallbackUrl) return cache.match(offlineFallbackUrl);
           return cache.match(request, { ignoreSearch: true });
-        });
-    })
+        })
+      )
   );
 }
 
