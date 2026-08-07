@@ -13,7 +13,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=1.0.2" />
+  <link rel="stylesheet" href="css/style.css?v=1.0.3" />
 </head>
 
 <body>
@@ -57,6 +57,9 @@
     </header>
 
     <!-- Floating Add Button -->
+    <button class="fab fab-home hidden" id="btn-home" aria-label="Go to Homepage" title="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    </button>
     <button class="fab" id="btn-add-song" aria-label="Add Song" title="Add Song">
       +
     </button>
@@ -121,10 +124,22 @@
 
       <!-- Content Area -->
       <section class="content" id="content">
-        <!-- Empty State -->
+        <!-- Empty State / Home Dashboard -->
         <div class="empty-state" id="empty-state">
-          <div class="empty-icon">🎸</div>
-          <p>Select a song or add a new one</p>
+          <div class="home-dashboard hidden" id="home-dashboard">
+            <div class="home-section" id="home-recent-songs">
+              <h3 class="home-section-title">Recently Updated Songs</h3>
+              <ul class="home-section-list" id="home-songs-list"></ul>
+            </div>
+            <div class="home-section" id="home-recent-playlists">
+              <h3 class="home-section-title">Recently Updated Playlists</h3>
+              <ul class="home-section-list" id="home-playlists-list"></ul>
+            </div>
+          </div>
+          <div class="empty-state-fallback" id="empty-state-fallback">
+            <div class="empty-icon">🎸</div>
+            <p>Select a song or add a new one</p>
+          </div>
         </div>
 
         <!-- Song Detail View -->

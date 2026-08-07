@@ -362,6 +362,51 @@
     `).join('');
   }
 
+  function renderHomeDashboard() {
+    const dashboard = $('home-dashboard');
+    const fallback = $('empty-state-fallback');
+    const homeSongsList = $('home-songs-list');
+    const homePlaylistsList = $('home-playlists-list');
+
+    if (songs.length === 0 && playlists.length === 0) {
+      dashboard.classList.add('hidden');
+      fallback.style.display = '';
+      return;
+    }
+
+    dashboard.classList.remove('hidden');
+    fallback.style.display = 'none';
+
+    const recentSongs = [...songs].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
+    const recentPlaylists = [...playlists].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
+
+    $('home-recent-songs').style.display = recentSongs.length ? '' : 'none';
+    $('home-recent-playlists').style.display = recentPlaylists.length ? '' : 'none';
+
+    homeSongsList.innerHTML = recentSongs.map(song => `
+      <li class="song-item" data-id="${song.id}">
+        <div class="song-item-title">${escapeHtml(song.title)}</div>
+        ${song.artist ? `<div class="song-item-artist">${escapeHtml(song.artist)}</div>` : ''}
+      </li>
+    `).join('');
+
+    homePlaylistsList.innerHTML = recentPlaylists.map(playlist => `
+      <li class="playlist-item" data-id="${playlist.id}">
+        <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
+        <div class="playlist-item-count">${playlist.songIds.length} songs</div>
+      </li>
+    `).join('');
+
+    homeSongsList.onclick = (e) => {
+      const item = e.target.closest('.song-item');
+      if (item) selectSong(item.dataset.id);
+    };
+    homePlaylistsList.onclick = (e) => {
+      const item = e.target.closest('.playlist-item');
+      if (item) selectPlaylist(item.dataset.id);
+    };
+  }
+
   function renderSongDetail() {
     const song = songs.find(s => s.id === selectedSongId);
     if (!song) {
@@ -370,6 +415,7 @@
       dom.playlistDetail.classList.add('hidden');
       // Reset header title
       dom.appTitle.textContent = 'Chord Library';
+      renderHomeDashboard();
       return;
     }
 
@@ -425,6 +471,7 @@
       dom.playlistDetail.classList.add('hidden');
       // Reset header title
       dom.appTitle.textContent = 'Chord Library';
+      renderHomeDashboard();
       return;
     }
 
@@ -452,7 +499,8 @@
     }
 
     dom.playlistSongs.innerHTML = playlistSongs.map((song, index) => `
-      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}">
+      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}" draggable="true">
+        <span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>
         <div class="playlist-song-info">
           <div class="playlist-song-title">${escapeHtml(song.title)}</div>
           ${song.artist ? `<div class="playlist-song-artist">${escapeHtml(song.artist)}</div>` : ''}
@@ -460,6 +508,214 @@
         <button class="btn-remove-song" data-id="${song.id}" title="Remove from playlist">✕</button>
       </li>
     `).join('');
+
+    setupPlaylistDragDrop();
+  }
+
+  function setupPlaylistDragDrop() {
+    const list = dom.playlistSongs;
+    
+    // Prevent duplicate listeners — use a flag on the element
+    if (list._dragDropInitialized) return;
+    list._dragDropInitialized = true;
+
+    let draggedItem = null;
+    let draggedIndex = -1;
+
+    // Desktop drag-and-drop
+    list.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.playlist-song-item');
+      if (!item) return;
+      draggedItem = item;
+      draggedIndex = parseInt(item.dataset.index, 10);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', draggedIndex.toString());
+    });
+
+    list.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const target = e.target.closest('.playlist-song-item');
+      if (!target || target === draggedItem) return;
+
+      clearDragIndicators();
+      const rect = target.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) {
+        target.classList.add('drag-over-top');
+      } else {
+        target.classList.add('drag-over-bottom');
+      }
+    });
+
+    list.addEventListener('dragleave', (e) => {
+      const target = e.target.closest('.playlist-song-item');
+      if (target) {
+        target.classList.remove('drag-over-top', 'drag-over-bottom');
+      }
+    });
+
+    list.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const target = e.target.closest('.playlist-song-item');
+      if (!target || target === draggedItem) {
+        clearDragIndicators();
+        return;
+      }
+
+      let targetIndex = parseInt(target.dataset.index, 10);
+      const rect = target.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY >= midY) targetIndex++;
+
+      reorderPlaylistSong(draggedIndex, targetIndex);
+      clearDragIndicators();
+    });
+
+    list.addEventListener('dragend', () => {
+      if (draggedItem) {
+        draggedItem.classList.remove('dragging');
+        draggedItem = null;
+      }
+      clearDragIndicators();
+    });
+
+    // Touch drag-and-drop (long-press to initiate)
+    let touchTimer = null;
+    let touchDragging = false;
+    let touchItem = null;
+    let touchIndex = -1;
+    let ghost = null;
+    let touchStartY = 0;
+
+    list.addEventListener('touchstart', (e) => {
+      const handle = e.target.closest('.drag-handle');
+      if (!handle) return;
+      const item = handle.closest('.playlist-song-item');
+      if (!item) return;
+
+      touchStartY = e.touches[0].clientY;
+      touchTimer = setTimeout(() => {
+        touchDragging = true;
+        touchItem = item;
+        touchIndex = parseInt(item.dataset.index, 10);
+        item.classList.add('touch-dragging');
+
+        ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.textContent = item.querySelector('.playlist-song-title').textContent;
+        document.body.appendChild(ghost);
+        positionGhost(e.touches[0]);
+
+        if (navigator.vibrate) navigator.vibrate(30);
+      }, 300);
+    }, { passive: true });
+
+    list.addEventListener('touchmove', (e) => {
+      if (!touchDragging) {
+        if (touchTimer && Math.abs(e.touches[0].clientY - touchStartY) > 10) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        }
+        return;
+      }
+      e.preventDefault();
+      positionGhost(e.touches[0]);
+
+      clearDragIndicators();
+      const touch = e.touches[0];
+      const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const target = elemBelow ? elemBelow.closest('.playlist-song-item') : null;
+      if (target && target !== touchItem) {
+        const rect = target.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (touch.clientY < midY) {
+          target.classList.add('drag-over-top');
+        } else {
+          target.classList.add('drag-over-bottom');
+        }
+      }
+    }, { passive: false });
+
+    list.addEventListener('touchend', (e) => {
+      clearTimeout(touchTimer);
+      touchTimer = null;
+
+      if (!touchDragging) return;
+      touchDragging = false;
+
+      if (ghost) {
+        ghost.remove();
+        ghost = null;
+      }
+
+      if (touchItem) {
+        touchItem.classList.remove('touch-dragging');
+      }
+
+      const touch = e.changedTouches[0];
+      const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const target = elemBelow ? elemBelow.closest('.playlist-song-item') : null;
+
+      if (target && target !== touchItem) {
+        let targetIdx = parseInt(target.dataset.index, 10);
+        const rect = target.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (touch.clientY >= midY) targetIdx++;
+        reorderPlaylistSong(touchIndex, targetIdx);
+      }
+
+      clearDragIndicators();
+      touchItem = null;
+    });
+
+    function positionGhost(touch) {
+      if (ghost) {
+        ghost.style.left = (touch.clientX + 12) + 'px';
+        ghost.style.top = (touch.clientY - 20) + 'px';
+      }
+    }
+
+    function clearDragIndicators() {
+      list.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+    }
+  }
+
+  function goHome() {
+    selectedSongId = null;
+    selectedPlaylistId = null;
+    viewingPlaylistSongIndex = -1;
+    viewingFromPlaylistId = null;
+    transposeSteps = 0;
+
+    dom.emptyState.classList.remove('hidden');
+    dom.songDetail.classList.add('hidden');
+    dom.playlistDetail.classList.add('hidden');
+    dom.appTitle.textContent = 'Chord Library';
+    $('btn-home').classList.add('hidden');
+
+    renderSongList();
+    renderPlaylistList();
+    renderHomeDashboard();
+  }
+
+  function reorderPlaylistSong(fromIndex, toIndex) {
+    const playlist = playlists.find(p => p.id === selectedPlaylistId);
+    if (!playlist) return;
+
+    if (toIndex > fromIndex) toIndex--;
+    if (fromIndex === toIndex) return;
+
+    const [moved] = playlist.songIds.splice(fromIndex, 1);
+    playlist.songIds.splice(toIndex, 0, moved);
+    playlist.updatedAt = Date.now();
+
+    savePlaylists();
+    renderPlaylistDetail();
+    renderPlaylistList();
   }
 
   function updateSongNavigation() {
@@ -507,6 +763,7 @@
     renderSongList();
     renderSongDetail();
     closeSidebar();
+    $('btn-home').classList.remove('hidden');
     
     // Announce to screen readers
     if (song) announce(`Viewing ${song.title}`);
@@ -669,6 +926,7 @@
     renderPlaylistList();
     renderPlaylistDetail();
     closeSidebar();
+    $('btn-home').classList.remove('hidden');
   }
 
   function openPlaylistModal(playlistId = null) {
@@ -777,7 +1035,8 @@
     const playlist = playlists.find(p => p.id === selectedPlaylistId);
     if (!playlist) return;
     
-    dom.songSelector.innerHTML = songs.map(song => `
+    const sortedSongs = [...songs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    dom.songSelector.innerHTML = sortedSongs.map(song => `
       <label class="song-selector-item">
         <input type="checkbox" value="${song.id}" ${playlist.songIds.includes(song.id) ? 'checked' : ''}>
         <div class="song-selector-info">
@@ -1606,6 +1865,9 @@
   // ================================================
   
   function initEventListeners() {
+    // Home FAB button
+    $('btn-home').addEventListener('click', goHome);
+
     // Menu toggle
     dom.menuToggle.addEventListener('click', toggleSidebar);
     
@@ -1657,6 +1919,9 @@
         return;
       }
       
+      // Ignore clicks on drag handle
+      if (e.target.closest('.drag-handle')) return;
+
       // Handle song click
       const item = e.target.closest('.playlist-song-item');
       if (item) {
@@ -1925,6 +2190,7 @@
     dom.emptyState.classList.remove('hidden');
     dom.songDetail.classList.add('hidden');
     dom.playlistDetail.classList.add('hidden');
+    renderHomeDashboard();
 
     // Initialize Firebase sync
     if (typeof SyncService !== 'undefined') {
