@@ -1561,6 +1561,54 @@ body {
   line-height: 1;
 }
 
+/* Preferences Modal */
+.pref-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.pref-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-primary);
+}
+
+.pref-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.pref-options {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.pref-option {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: center;
+}
+
+.pref-option:hover {
+  border-color: var(--accent);
+  background: var(--bg-card);
+}
+
+.pref-option.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* User Dropdown */
 .user-dropdown {
   position: absolute;

@@ -15,7 +15,8 @@
     PLAYLISTS: 'chord-library-playlists',
     FONT_SIZE: 'chord-library-font-size',
     THEME: 'chord-library-theme',
-    SIDEBAR_SCROLL: 'chord-library-sidebar-scroll'
+    SIDEBAR_SCROLL: 'chord-library-sidebar-scroll',
+    NOTATION: 'chord-library-notation'
   };
 
   // Musical notes for transposition
@@ -75,6 +76,7 @@
   let qrScannerRafId = null;
   let qrDetector = null;
   let qrCodeLoadPromise = null;
+  let notationPref = 'original'; // 'original', 'sharp', or 'flat'
 
   // ================================================
   // DOM Elements
@@ -228,16 +230,50 @@
   }
 
   /**
+   * Convert a note to the preferred notation (sharp/flat/original)
+   */
+  function convertNoteNotation(note) {
+    if (notationPref === 'original') return note;
+    let index = NOTES.indexOf(note);
+    if (index === -1) index = NOTES_FLAT.indexOf(note);
+    if (index === -1) return note;
+    return notationPref === 'sharp' ? NOTES[index] : NOTES_FLAT[index];
+  }
+
+  /**
+   * Apply notation preference to all chords in text
+   */
+  function applyNotationPreference(text) {
+    if (!text || notationPref === 'original') return text || '';
+    return text.replace(CHORD_RE(), (match, root, quality, slash) => {
+      let result = convertNoteNotation(root) + (quality || '');
+      if (slash) {
+        const m = slash.match(/^\/([A-G][#b]?)(.*)/);
+        if (m) {
+          result += '/' + convertNoteNotation(m[1]) + (m[2] || '');
+        } else {
+          result += slash;
+        }
+      }
+      return result;
+    });
+  }
+
+  /**
    * Highlight chords in text with HTML spans
    */
   function highlightChords(text) {
     if (!text) return '';
-    const escaped = text
+    const converted = applyNotationPreference(text);
+    const escaped = converted
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     // Highlight chords
-    let result = escaped.replace(CHORD_RE(), '<span class="chord">$&</span>');
+    let result = escaped.replace(CHORD_RE(), (match) => {
+      const display = match.replace(/([A-G])#/g, '$1♯').replace(/([A-G])b/g, '$1♭');
+      return '<span class="chord">' + display + '</span>';
+    });
     // Highlight bracketed commands like [to chorus], [intro], etc.
     result = result.replace(/\[([^\]]+)\]/g, (match, inner) => {
       // If the bracket content is just a chord (A-G with optional #/b and quality), don't re-highlight
@@ -1753,6 +1789,45 @@
     }
   }
 
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = theme === 'light' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    updatePreferencesUI();
+  }
+
+  function setNotationPref(pref) {
+    notationPref = pref;
+    localStorage.setItem(STORAGE_KEYS.NOTATION, pref);
+    updatePreferencesUI();
+    if (selectedSongId) renderSongDetail();
+  }
+
+  function loadNotationPref() {
+    const saved = localStorage.getItem(STORAGE_KEYS.NOTATION);
+    if (saved) notationPref = saved;
+  }
+
+  function openPreferencesModal() {
+    document.getElementById('user-dropdown').classList.remove('visible');
+    updatePreferencesUI();
+    openModalWithFocusTrap($('preferences-modal'));
+  }
+
+  function closePreferencesModal() {
+    closeModalWithFocusTrap($('preferences-modal'));
+  }
+
+  function updatePreferencesUI() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    $('pref-theme-dark').classList.toggle('active', theme === 'dark');
+    $('pref-theme-light').classList.toggle('active', theme === 'light');
+    $('pref-notation-original').classList.toggle('active', notationPref === 'original');
+    $('pref-notation-sharp').classList.toggle('active', notationPref === 'sharp');
+    $('pref-notation-flat').classList.toggle('active', notationPref === 'flat');
+  }
+
   /**
    * Focus trap for modal dialogs
    */
@@ -2101,6 +2176,7 @@
         if (!dom.addSongsModal.classList.contains('hidden')) closeAddSongsModal();
         if (!dom.confirmModal.classList.contains('hidden')) closeConfirmModal();
         if (dom.shareQrModal && !dom.shareQrModal.classList.contains('hidden')) closeShareQrModal();
+        if (!$('preferences-modal').classList.contains('hidden')) closePreferencesModal();
       }
       
       // Arrow key navigation for playlist songs
@@ -2120,6 +2196,16 @@
     if (themeToggle) {
       themeToggle.addEventListener('click', toggleTheme);
     }
+
+    // Preferences
+    $('btn-preferences').addEventListener('click', openPreferencesModal);
+    $('btn-close-preferences').addEventListener('click', closePreferencesModal);
+    $('preferences-modal').querySelector('.modal-backdrop').addEventListener('click', closePreferencesModal);
+    $('pref-theme-dark').addEventListener('click', () => setTheme('dark'));
+    $('pref-theme-light').addEventListener('click', () => setTheme('light'));
+    $('pref-notation-original').addEventListener('click', () => setNotationPref('original'));
+    $('pref-notation-sharp').addEventListener('click', () => setNotationPref('sharp'));
+    $('pref-notation-flat').addEventListener('click', () => setNotationPref('flat'));
 
     // Export data
     const btnExport = document.getElementById('btn-export-data');
@@ -2171,6 +2257,7 @@
   function init() {
     loadData();
     loadTheme();
+    loadNotationPref();
     createSwipeIndicators();
     renderSongList();
     renderPlaylistList();

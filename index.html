@@ -24,7 +24,7 @@
         <span class="hamburger-icon" aria-hidden="true"></span>
       </button>
       <h1 class="app-title" id="app-title">Chord Library</h1>
-      <button class="btn-icon theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
+      <button class="btn-icon theme-toggle hidden" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
         <span id="theme-icon">🌙</span>
       </button>
       <div class="user-account">
@@ -41,8 +41,8 @@
           <button class="btn btn-primary user-dropdown-btn" id="btn-sign-in">
             Sign in with Google
           </button>
-          <button class="btn btn-danger user-dropdown-btn hidden" id="btn-sign-out">
-            Sign out
+          <button class="btn btn-secondary user-dropdown-btn" id="btn-preferences">
+            ⚙️ Preferences
           </button>
           <hr class="dropdown-divider" />
           <button class="btn btn-secondary user-dropdown-btn" id="btn-export-data">
@@ -52,6 +52,10 @@
             Import Data
           </button>
           <input type="file" id="import-file-input" accept=".json" class="hidden" />
+          <hr class="dropdown-divider" />
+          <button class="btn btn-danger user-dropdown-btn hidden" id="btn-sign-out">
+            Sign out
+          </button>
         </div>
       </div>
     </header>
@@ -385,6 +389,33 @@
         <button type="button" class="btn btn-primary" id="btn-close-share-qr">
           Close
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preferences Modal -->
+  <div class="modal hidden" id="preferences-modal" role="dialog" aria-modal="true" aria-labelledby="preferences-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 class="modal-title" id="preferences-modal-title">Preferences</h3>
+      <div class="pref-group">
+        <label class="pref-label">Theme</label>
+        <div class="pref-options">
+          <button class="pref-option" id="pref-theme-dark" data-value="dark">🌙 Dark</button>
+          <button class="pref-option" id="pref-theme-light" data-value="light">☀️ Light</button>
+        </div>
+      </div>
+      <div class="pref-group">
+        <label class="pref-label">Chord Notation</label>
+        <p class="pref-hint">Choose how accidentals are displayed in the song viewer</p>
+        <div class="pref-options">
+          <button class="pref-option" id="pref-notation-original" data-value="original">Original</button>
+          <button class="pref-option" id="pref-notation-sharp" data-value="sharp">Sharp (♯)</button>
+          <button class="pref-option" id="pref-notation-flat" data-value="flat">Flat (♭)</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btn-close-preferences">Done</button>
       </div>
     </div>
   </div>
