@@ -20,11 +20,12 @@
 
   // Musical notes for transposition
   const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   
   // Regex for matching chord patterns
   const QUALITY = '(?:m(?:aj)?|M(?:aj)?|min|dim|aug|sus[24]?|add|\\d)[a-z0-9]*';
   const CHORD_RE = () => new RegExp(
-    `(?<![A-Za-z])([A-G]#?)(${QUALITY})?(\\/[A-G]#?(?:${QUALITY})?)?(?![a-zA-Z0-9#])`,
+    `(?<![A-Za-z])([A-G][#b]?)(${QUALITY})?(\\/[A-G][#b]?(?:${QUALITY})?)?(?![a-zA-Z0-9#b])`,
     'g'
   );
   const SONG_QR_TYPE = 'cl-song';
@@ -198,9 +199,12 @@
    * Transpose a single note by the given number of steps
    */
   function transposeNote(note, steps) {
-    const index = NOTES.indexOf(note);
+    let index = NOTES.indexOf(note);
+    const useFlat = index === -1;
+    if (useFlat) index = NOTES_FLAT.indexOf(note);
     if (index === -1) return note;
-    return NOTES[((index + steps) % 12 + 12) % 12];
+    const newIndex = ((index + steps) % 12 + 12) % 12;
+    return useFlat ? NOTES_FLAT[newIndex] : NOTES[newIndex];
   }
 
   /**
@@ -212,7 +216,7 @@
       const newRoot = transposeNote(root, steps);
       let result = newRoot + (quality || '');
       if (slash) {
-        const match = slash.match(/^\/([A-G]#?)(.*)/);
+        const match = slash.match(/^\/([A-G][#b]?)(.*)/);
         if (match) {
           result += '/' + transposeNote(match[1], steps) + (match[2] || '');
         } else {
