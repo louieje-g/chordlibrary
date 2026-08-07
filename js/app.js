@@ -539,7 +539,7 @@
     }
 
     dom.playlistSongs.innerHTML = playlistSongs.map((song, index) => `
-      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}" draggable="true">
+      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}">
         <span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>
         <div class="playlist-song-info">
           <div class="playlist-song-title">${escapeHtml(song.title)}</div>
@@ -554,174 +554,147 @@
 
   function setupPlaylistDragDrop() {
     const list = dom.playlistSongs;
-    
-    // Prevent duplicate listeners — use a flag on the element
+
     if (list._dragDropInitialized) return;
     list._dragDropInitialized = true;
 
-    let draggedItem = null;
-    let draggedIndex = -1;
+    let dragging = false;
+    let dragItem = null;
+    let dragIndex = -1;
+    let ghost = null;
+    let startY = 0;
+    let longPressTimer = null;
+    const LONG_PRESS_MS = 200;
+    const MOVE_THRESHOLD = 5;
 
-    // Desktop drag-and-drop
-    list.addEventListener('dragstart', (e) => {
-      const item = e.target.closest('.playlist-song-item');
-      if (!item) return;
-      draggedItem = item;
-      draggedIndex = parseInt(item.dataset.index, 10);
-      item.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', draggedIndex.toString());
-    });
+    function getItems() {
+      return Array.from(list.querySelectorAll('.playlist-song-item'));
+    }
 
-    list.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      const target = e.target.closest('.playlist-song-item');
-      if (!target || target === draggedItem) return;
+    function createGhost(item, x, y) {
+      ghost = document.createElement('div');
+      ghost.className = 'drag-ghost';
+      ghost.textContent = item.querySelector('.playlist-song-title').textContent;
+      document.body.appendChild(ghost);
+      moveGhost(x, y);
+    }
 
-      clearDragIndicators();
+    function moveGhost(x, y) {
+      if (ghost) {
+        ghost.style.left = (x + 12) + 'px';
+        ghost.style.top = (y - 20) + 'px';
+      }
+    }
+
+    function removeGhost() {
+      if (ghost) { ghost.remove(); ghost = null; }
+    }
+
+    function clearIndicators() {
+      list.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+    }
+
+    function getDropTarget(x, y) {
+      if (ghost) ghost.style.display = 'none';
+      const elem = document.elementFromPoint(x, y);
+      if (ghost) ghost.style.display = '';
+      return elem ? elem.closest('.playlist-song-item') : null;
+    }
+
+    function showIndicator(target, y) {
+      if (!target || target === dragItem) return;
+      clearIndicators();
       const rect = target.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      if (e.clientY < midY) {
+      if (y < rect.top + rect.height / 2) {
         target.classList.add('drag-over-top');
       } else {
         target.classList.add('drag-over-bottom');
       }
-    });
+    }
 
-    list.addEventListener('dragleave', (e) => {
-      const target = e.target.closest('.playlist-song-item');
-      if (target) {
-        target.classList.remove('drag-over-top', 'drag-over-bottom');
-      }
-    });
+    function finishDrag(x, y) {
+      if (!dragging) return;
+      dragging = false;
 
-    list.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const target = e.target.closest('.playlist-song-item');
-      if (!target || target === draggedItem) {
-        clearDragIndicators();
-        return;
+      const target = getDropTarget(x, y);
+      if (target && target !== dragItem) {
+        let targetIndex = parseInt(target.dataset.index, 10);
+        const rect = target.getBoundingClientRect();
+        if (y >= rect.top + rect.height / 2) targetIndex++;
+        reorderPlaylistSong(dragIndex, targetIndex);
       }
 
-      let targetIndex = parseInt(target.dataset.index, 10);
-      const rect = target.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      if (e.clientY >= midY) targetIndex++;
+      if (dragItem) dragItem.classList.remove('dragging');
+      dragItem = null;
+      removeGhost();
+      clearIndicators();
+      document.body.style.userSelect = '';
+    }
 
-      reorderPlaylistSong(draggedIndex, targetIndex);
-      clearDragIndicators();
-    });
+    function cancelDrag() {
+      dragging = false;
+      if (dragItem) dragItem.classList.remove('dragging');
+      dragItem = null;
+      removeGhost();
+      clearIndicators();
+      document.body.style.userSelect = '';
+    }
 
-    list.addEventListener('dragend', () => {
-      if (draggedItem) {
-        draggedItem.classList.remove('dragging');
-        draggedItem = null;
-      }
-      clearDragIndicators();
-    });
-
-    // Touch drag-and-drop (long-press to initiate)
-    let touchTimer = null;
-    let touchDragging = false;
-    let touchItem = null;
-    let touchIndex = -1;
-    let ghost = null;
-    let touchStartY = 0;
-
-    list.addEventListener('touchstart', (e) => {
+    // Pointer-based drag (works for both mouse and touch)
+    list.addEventListener('pointerdown', (e) => {
       const handle = e.target.closest('.drag-handle');
       if (!handle) return;
       const item = handle.closest('.playlist-song-item');
       if (!item) return;
 
-      touchStartY = e.touches[0].clientY;
-      touchTimer = setTimeout(() => {
-        touchDragging = true;
-        touchItem = item;
-        touchIndex = parseInt(item.dataset.index, 10);
-        item.classList.add('touch-dragging');
+      e.preventDefault();
+      startY = e.clientY;
+      const startX = e.clientX;
 
-        ghost = document.createElement('div');
-        ghost.className = 'drag-ghost';
-        ghost.textContent = item.querySelector('.playlist-song-title').textContent;
-        document.body.appendChild(ghost);
-        positionGhost(e.touches[0]);
-
+      longPressTimer = setTimeout(() => {
+        dragging = true;
+        dragItem = item;
+        dragIndex = parseInt(item.dataset.index, 10);
+        item.classList.add('dragging');
+        document.body.style.userSelect = 'none';
+        createGhost(item, startX, startY);
         if (navigator.vibrate) navigator.vibrate(30);
-      }, 300);
-    }, { passive: true });
+      }, LONG_PRESS_MS);
 
-    list.addEventListener('touchmove', (e) => {
-      if (!touchDragging) {
-        if (touchTimer && Math.abs(e.touches[0].clientY - touchStartY) > 10) {
-          clearTimeout(touchTimer);
-          touchTimer = null;
+      list.setPointerCapture(e.pointerId);
+    });
+
+    list.addEventListener('pointermove', (e) => {
+      if (longPressTimer && !dragging) {
+        if (Math.abs(e.clientY - startY) > MOVE_THRESHOLD) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
         }
         return;
       }
+      if (!dragging) return;
+
       e.preventDefault();
-      positionGhost(e.touches[0]);
-
-      clearDragIndicators();
-      const touch = e.touches[0];
-      const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-      const target = elemBelow ? elemBelow.closest('.playlist-song-item') : null;
-      if (target && target !== touchItem) {
-        const rect = target.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (touch.clientY < midY) {
-          target.classList.add('drag-over-top');
-        } else {
-          target.classList.add('drag-over-bottom');
-        }
-      }
-    }, { passive: false });
-
-    list.addEventListener('touchend', (e) => {
-      clearTimeout(touchTimer);
-      touchTimer = null;
-
-      if (!touchDragging) return;
-      touchDragging = false;
-
-      if (ghost) {
-        ghost.remove();
-        ghost = null;
-      }
-
-      if (touchItem) {
-        touchItem.classList.remove('touch-dragging');
-      }
-
-      const touch = e.changedTouches[0];
-      const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-      const target = elemBelow ? elemBelow.closest('.playlist-song-item') : null;
-
-      if (target && target !== touchItem) {
-        let targetIdx = parseInt(target.dataset.index, 10);
-        const rect = target.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (touch.clientY >= midY) targetIdx++;
-        reorderPlaylistSong(touchIndex, targetIdx);
-      }
-
-      clearDragIndicators();
-      touchItem = null;
+      moveGhost(e.clientX, e.clientY);
+      const target = getDropTarget(e.clientX, e.clientY);
+      showIndicator(target, e.clientY);
     });
 
-    function positionGhost(touch) {
-      if (ghost) {
-        ghost.style.left = (touch.clientX + 12) + 'px';
-        ghost.style.top = (touch.clientY - 20) + 'px';
+    list.addEventListener('pointerup', (e) => {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if (dragging) {
+        finishDrag(e.clientX, e.clientY);
       }
-    }
+    });
 
-    function clearDragIndicators() {
-      list.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
-        el.classList.remove('drag-over-top', 'drag-over-bottom');
-      });
-    }
+    list.addEventListener('pointercancel', () => {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      cancelDrag();
+    });
   }
 
   function goHome() {

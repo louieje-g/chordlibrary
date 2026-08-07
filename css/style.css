@@ -547,11 +547,6 @@ body {
   margin-bottom: -2px;
 }
 
-.playlist-song-item.touch-dragging {
-  opacity: 0.4;
-  background: var(--accent-dim);
-}
-
 .drag-ghost {
   position: fixed;
   pointer-events: none;
