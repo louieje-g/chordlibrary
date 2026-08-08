@@ -5,14 +5,23 @@ A mobile-first offline chord library web application for musicians. Store, organ
 ## Features
 
 - **Song Management**: Add, edit, and delete songs with lyrics and chords
-- **Chord Transposition**: Transpose songs up or down by semitones with working transpose and reset buttons
-- **Chord Highlighting**: Automatic highlighting of recognized chord patterns
+- **Chord Transposition**: Transpose songs up or down by semitones (±11 limit) with persistent per-song values
+- **Chord Highlighting**: Automatic highlighting of sharp and flat chord patterns
+- **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) with proper ♯/♭ symbols
+- **Key & Capo Display**: Auto-detected key and capo position shown when transposing
 - **Playlists**: Create playlists to organize songs for performances
-- **Playlist Navigation**: Navigate between songs in a playlist using left/right buttons
-- **Mobile Swipe**: Swipe left/right on mobile to navigate songs in a playlist
+- **Playlist Reorder**: Drag-and-drop song ordering within playlists
+- **Playlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a playlist
+- **Auto-Scroll**: Teleprompter mode with configurable speed (slow/medium/fast) for live performance
+- **Home Dashboard**: Recently updated songs and playlists on the homepage
+- **Preferences**: Theme (dark/light) and chord notation (original/sharp/flat) settings
+- **Smart QR Sharing**: Compressed QR codes that strip lyrics for easier scanning
+- **Firebase Sync**: Optional Google sign-in for cross-device sync via Firestore
+- **Import/Export**: Full data backup, single song export, QR code import
 - **Mobile-First Design**: Optimized for mobile devices with responsive layout
-- **Offline Storage**: All data stored locally using localStorage
-- **Search**: Filter songs by title or artist
+- **Offline Storage**: Full PWA with service worker for offline use
+- **Search**: Filter songs by title, artist, or content
+- **Feature Tour**: One-time "What's New" overlay for major updates
 
 ## Usage
 

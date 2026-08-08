@@ -459,6 +459,50 @@
   <!-- Screen reader announcements -->
   <div class="sr-only" aria-live="assertive" id="sr-announcements"></div>
 
+  <!-- Feature Tour Overlay -->
+  <div class="tour-overlay hidden" id="tour-overlay">
+    <div class="tour-modal">
+      <h2 class="tour-title">🎉 What's New</h2>
+      <div class="tour-slides" id="tour-slides">
+        <div class="tour-slide active" data-slide="0">
+          <div class="tour-slide-icon">🏠</div>
+          <h3>Home Dashboard</h3>
+          <p>Your homepage now shows recently updated songs and playlists for quick access.</p>
+        </div>
+        <div class="tour-slide" data-slide="1">
+          <div class="tour-slide-icon">⚙️</div>
+          <h3>Preferences</h3>
+          <p>Tap your profile icon to access Preferences — choose theme (dark/light) and chord notation (sharp ♯ or flat ♭).</p>
+        </div>
+        <div class="tour-slide" data-slide="2">
+          <div class="tour-slide-icon">▶</div>
+          <h3>Auto-Scroll</h3>
+          <p>Tap the play button (bottom-right) while viewing a song to auto-scroll. Long-press to cycle speed.</p>
+        </div>
+        <div class="tour-slide" data-slide="3">
+          <div class="tour-slide-icon">🎵</div>
+          <h3>Key &amp; Capo Display</h3>
+          <p>The detected key and capo position are shown below the toolbar when you transpose.</p>
+        </div>
+        <div class="tour-slide" data-slide="4">
+          <div class="tour-slide-icon">↕️</div>
+          <h3>Playlist Reorder</h3>
+          <p>Drag the ⋮⋮ handle on playlist songs to reorder them. Long-press the handle on mobile.</p>
+        </div>
+        <div class="tour-slide" data-slide="5">
+          <div class="tour-slide-icon">📱</div>
+          <h3>Smarter QR Sharing</h3>
+          <p>QR codes are now lighter — lyrics are stripped, keeping only chords and structure for easier scanning.</p>
+        </div>
+      </div>
+      <div class="tour-dots" id="tour-dots"></div>
+      <div class="tour-actions">
+        <button class="btn btn-secondary" id="tour-skip">Skip</button>
+        <button class="btn btn-primary" id="tour-next">Next</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>

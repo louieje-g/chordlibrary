@@ -10,13 +10,16 @@
   // Constants & Helpers
   // ================================================
   
+  const TOUR_VERSION = '2.0';
+
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
     PLAYLISTS: 'chord-library-playlists',
     FONT_SIZE: 'chord-library-font-size',
     THEME: 'chord-library-theme',
     SIDEBAR_SCROLL: 'chord-library-sidebar-scroll',
-    NOTATION: 'chord-library-notation'
+    NOTATION: 'chord-library-notation',
+    TOUR_SEEN: 'chord-library-tour-seen'
   };
 
   // Musical notes for transposition
@@ -2378,6 +2381,56 @@
   }
 
   // ================================================
+  // Feature Tour
+  // ================================================
+
+  function showTourIfNeeded() {
+    const seen = localStorage.getItem(STORAGE_KEYS.TOUR_SEEN);
+    if (seen === TOUR_VERSION) return;
+    const overlay = $('tour-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    initTour();
+  }
+
+  function initTour() {
+    const slides = document.querySelectorAll('.tour-slide');
+    const dotsContainer = $('tour-dots');
+    const btnNext = $('tour-next');
+    const btnSkip = $('tour-skip');
+    let current = 0;
+
+    dotsContainer.innerHTML = Array.from(slides).map((_, i) =>
+      '<span class="tour-dot ' + (i === 0 ? 'active' : '') + '"></span>'
+    ).join('');
+
+    function goTo(index) {
+      slides.forEach(s => s.classList.remove('active'));
+      slides[index].classList.add('active');
+      dotsContainer.querySelectorAll('.tour-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+      current = index;
+      btnNext.textContent = current === slides.length - 1 ? 'Done' : 'Next';
+    }
+
+    btnNext.addEventListener('click', () => {
+      if (current < slides.length - 1) {
+        goTo(current + 1);
+      } else {
+        dismissTour();
+      }
+    });
+
+    btnSkip.addEventListener('click', dismissTour);
+  }
+
+  function dismissTour() {
+    localStorage.setItem(STORAGE_KEYS.TOUR_SEEN, TOUR_VERSION);
+    $('tour-overlay').classList.add('hidden');
+  }
+
+  // ================================================
   // Initialization
   // ================================================
   
@@ -2426,6 +2479,8 @@
         }
       });
     }
+
+    showTourIfNeeded();
   }
 
   // Start the app when DOM is ready
