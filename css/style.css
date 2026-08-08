@@ -404,6 +404,7 @@ body {
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: background var(--transition-fast);
+  animation: listItemIn 0.25s ease both;
 }
 
 .song-item:hover,
@@ -508,7 +509,21 @@ body {
   padding: var(--spacing-sm) var(--spacing-md);
   cursor: pointer;
   transition: background var(--transition-fast);
+  animation: listItemIn 0.3s ease both;
 }
+
+/* Staggered list animation */
+@keyframes listItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 .home-section-list .song-item:hover,
 .home-section-list .playlist-item:hover {
@@ -667,6 +682,7 @@ body {
   margin-bottom: var(--spacing-sm);
   flex-wrap: nowrap;
   overflow-x: auto;
+  animation: viewFadeIn 0.2s ease;
 }
 
 .song-toolbar-left {
@@ -988,6 +1004,7 @@ body {
   margin-bottom: var(--spacing-sm);
   cursor: pointer;
   transition: var(--transition-fast);
+  animation: listItemIn 0.3s ease both;
 }
 
 .playlist-song-item:hover {
@@ -1486,6 +1503,53 @@ body {
 /* Hidden Utility */
 .hidden {
   display: none !important;
+}
+
+/* View transition animations */
+.song-detail:not(.hidden),
+.playlist-detail:not(.hidden) {
+  animation: viewFadeIn 0.25s ease;
+}
+
+.empty-state:not(.hidden) {
+  animation: viewFadeIn 0.3s ease;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* FAB entrance */
+.fab:not(.hidden) {
+  animation: fabIn 0.2s ease;
+}
+
+@keyframes fabIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Modal backdrop fade */
+.modal:not(.hidden) .modal-backdrop {
+  animation: fadeIn 0.2s ease;
+}
+
+/* Song content fade */
+.song-content {
+  animation: viewFadeIn 0.2s ease;
 }
 
 /* ================================================
@@ -2029,10 +2093,11 @@ body {
    ================================================ */
 .undo-toast {
   position: fixed;
+  width: calc(100% - var(--spacing-md)  - var(--spacing-md));
   bottom: calc(80px + var(--safe-area-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  left: var(--spacing-md);
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-md) var(--spacing-lg);

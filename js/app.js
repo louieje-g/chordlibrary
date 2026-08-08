@@ -437,8 +437,8 @@
       return;
     }
 
-    dom.songList.innerHTML = filtered.map(song => `
-      <li class="song-item ${song.id === selectedSongId ? 'active' : ''}" data-id="${song.id}">
+    dom.songList.innerHTML = filtered.map((song, i) => `
+      <li class="song-item ${song.id === selectedSongId ? 'active' : ''}" data-id="${song.id}" style="animation-delay:${Math.min(i * 30, 300)}ms">
         <div class="song-item-title">${escapeHtml(song.title)}</div>
         ${song.artist ? `<div class="song-item-artist">${escapeHtml(song.artist)}</div>` : ''}
       </li>
@@ -460,8 +460,8 @@
     // Apply sorting
     const sortedPlaylists = sortItems(playlists, sortOption, 'name');
 
-    dom.playlistList.innerHTML = sortedPlaylists.map(playlist => `
-      <li class="playlist-item ${playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1 ? 'active' : ''}" data-id="${playlist.id}">
+    dom.playlistList.innerHTML = sortedPlaylists.map((playlist, i) => `
+      <li class="playlist-item ${playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1 ? 'active' : ''}" data-id="${playlist.id}" style="animation-delay:${Math.min(i * 30, 300)}ms">
         <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
         <div class="playlist-item-count">${playlist.songIds.length} songs</div>
       </li>
@@ -489,15 +489,15 @@
     $('home-recent-songs').style.display = recentSongs.length ? '' : 'none';
     $('home-recent-playlists').style.display = recentPlaylists.length ? '' : 'none';
 
-    homeSongsList.innerHTML = recentSongs.map(song => `
-      <li class="song-item" data-id="${song.id}">
+    homeSongsList.innerHTML = recentSongs.map((song, i) => `
+      <li class="song-item" data-id="${song.id}" style="animation-delay:${i * 50}ms">
         <div class="song-item-title">${escapeHtml(song.title)}</div>
         ${song.artist ? `<div class="song-item-artist">${escapeHtml(song.artist)}</div>` : ''}
       </li>
     `).join('');
 
-    homePlaylistsList.innerHTML = recentPlaylists.map(playlist => `
-      <li class="playlist-item" data-id="${playlist.id}">
+    homePlaylistsList.innerHTML = recentPlaylists.map((playlist, i) => `
+      <li class="playlist-item" data-id="${playlist.id}" style="animation-delay:${i * 50}ms">
         <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
         <div class="playlist-item-count">${playlist.songIds.length} songs</div>
       </li>
@@ -628,7 +628,7 @@
     }
 
     dom.playlistSongs.innerHTML = playlistSongs.map((song, index) => `
-      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}">
+      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}" style="animation-delay:${index * 40}ms">
         <span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>
         <div class="playlist-song-info">
           <div class="playlist-song-title">${escapeHtml(song.title)}</div>
