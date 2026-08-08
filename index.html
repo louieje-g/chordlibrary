@@ -24,7 +24,8 @@
         <span class="hamburger-icon" aria-hidden="true"></span>
       </button>
       <h1 class="app-title" id="app-title">Chord Library</h1>
-      <button class="btn-icon theme-toggle hidden" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
+      <button class="btn-icon theme-toggle hidden" id="theme-toggle" aria-label="Toggle light/dark theme"
+        title="Toggle Theme">
         <span id="theme-icon">🌙</span>
       </button>
       <div class="user-account">
@@ -60,9 +61,17 @@
       </div>
     </header>
 
-    <!-- Floating Add Button -->
+    <!-- Floating Buttons -->
+    <button class="fab fab-autoscroll hidden" id="btn-autoscroll" aria-label="Auto-scroll"
+      title="Auto-scroll: tap to toggle, hold to change speed">
+      ▶
+    </button>
     <button class="fab fab-home hidden" id="btn-home" aria-label="Go to Homepage" title="Home">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
     </button>
     <button class="fab" id="btn-add-song" aria-label="Add Song" title="Add Song">
       +
@@ -184,22 +193,20 @@
                 <option value="18">18</option>
               </select>
               <button class="btn-tool" id="btn-share-song" aria-label="Share Song via QR" title="Share Song via QR">
-                <!-- QR Code Icon (SVG) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="3" width="5" height="5"></rect>
-                  <rect x="16" y="3" width="5" height="5"></rect>
-                  <rect x="3" y="16" width="5" height="5"></rect>
-                  <path d="M21 16h-3v3"></path>
-                  <path d="M21 21v.01"></path>
-                  <path d="M12 7v3"></path>
-                  <path d="M12 12h3"></path>
-                  <path d="M12 16v.01"></path>
-                  <path d="M16 12h1"></path>
-                  <path d="M21 12v.01"></path>
-                  <path d="M12 21v-1"></path>
+                  <!-- Corner brackets -->
+                  <path d="M7 3H3v4"></path>
+                  <path d="M17 3h4v4"></path>
+                  <path d="M7 21H3v-4"></path>
+                  <path d="M17 21h4v-4"></path>
+                  <!-- QR pattern -->
+                  <rect x="7" y="7" width="3" height="3"></rect>
+                  <rect x="14" y="7" width="3" height="3"></rect>
+                  <rect x="7" y="14" width="3" height="3"></rect>
+                  <rect x="14" y="14" width="1.5" height="1.5"></rect>
+                  <rect x="16" y="15.5" width="1.5" height="1.5"></rect>
                 </svg>
-                <!-- QR -->
               </button>
               <button class="btn-tool" id="btn-export-song" aria-label="Export Song" title="Export Song">
                 ⬇️
@@ -211,6 +218,12 @@
                 🗑
               </button>
             </div>
+          </div>
+
+          <!-- Key / Capo Info -->
+          <div class="song-key-info hidden" id="song-key-info">
+            <span class="key-badge" id="key-badge"></span>
+            <span class="capo-badge hidden" id="capo-badge"></span>
           </div>
 
           <!-- Song Content -->
@@ -249,7 +262,19 @@
           ⬆️ Import Song File
         </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-scan-qr">
-          📷 Scan QR
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="vertical-align: middle; margin-right: 4px;">
+            <path d="M7 3H3v4"></path>
+            <path d="M17 3h4v4"></path>
+            <path d="M7 21H3v-4"></path>
+            <path d="M17 21h4v-4"></path>
+            <rect x="7" y="7" width="3" height="3"></rect>
+            <rect x="14" y="7" width="3" height="3"></rect>
+            <rect x="7" y="14" width="3" height="3"></rect>
+            <rect x="14" y="14" width="1.5" height="1.5"></rect>
+            <rect x="16" y="15.5" width="1.5" height="1.5"></rect>
+          </svg>Import via QR
         </button>
         <input type="file" id="import-song-file" accept=".json" class="hidden" />
         <input type="file" id="scan-qr-image-file" accept="image/*" class="hidden" />
@@ -268,6 +293,7 @@
           <div class="label-with-buttons">
             <label for="song-content-input">Lyrics & Chords *</label>
             <div class="char-buttons">
+              <button type="button" class="char-btn" data-char="b">b</button>
               <button type="button" class="char-btn" data-char="#">#</button>
               <button type="button" class="char-btn" data-char="/">/</button>
               <button type="button" class="char-btn" data-char="|">|</button>
@@ -394,7 +420,8 @@
   </div>
 
   <!-- Preferences Modal -->
-  <div class="modal hidden" id="preferences-modal" role="dialog" aria-modal="true" aria-labelledby="preferences-modal-title">
+  <div class="modal hidden" id="preferences-modal" role="dialog" aria-modal="true"
+    aria-labelledby="preferences-modal-title">
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 class="modal-title" id="preferences-modal-title">Preferences</h3>

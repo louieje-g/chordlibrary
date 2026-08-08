@@ -77,6 +77,9 @@
   let qrDetector = null;
   let qrCodeLoadPromise = null;
   let notationPref = 'original'; // 'original', 'sharp', or 'flat'
+  let autoScrollInterval = null;
+  let autoScrollSpeed = 1; // 0=slow, 1=medium, 2=fast
+  const AUTO_SCROLL_SPEEDS = [0.5, 1, 2]; // px per tick
 
   // ================================================
   // DOM Elements
@@ -283,6 +286,66 @@
     return result;
   }
 
+  function detectKey(content) {
+    if (!content) return null;
+    const match = content.match(CHORD_RE());
+    if (!match) return null;
+    const rootMatch = match[0].match(/^([A-G][#b]?)/);
+    return rootMatch ? rootMatch[1] : null;
+  }
+
+  function getCapoInfo(originalKey, transposeSteps) {
+    if (!originalKey || transposeSteps === 0) return null;
+    // Capo position is the negative of transpose (e.g., transpose +2 = capo 2 play original shapes)
+    // But musicians use capo to play in easier shapes: if transposed UP, no capo needed (new key is higher)
+    // Capo is useful when the song is transposed DOWN: capo = |transposeSteps| 
+    // Actually: if you transpose +N, to play original shapes you'd capo N. 
+    // Standard: capo = (12 - Math.abs(steps)) % 12 when going down, or steps when going up
+    const capo = ((transposeSteps % 12) + 12) % 12;
+    if (capo === 0) return null;
+    return capo;
+  }
+
+  function startAutoScroll() {
+    stopAutoScroll();
+    const btn = $('btn-autoscroll');
+    btn.classList.add('autoscroll-active');
+    btn.textContent = '⏸';
+    const speed = AUTO_SCROLL_SPEEDS[autoScrollSpeed];
+    autoScrollInterval = setInterval(() => {
+      dom.content.scrollTop += speed;
+    }, 30);
+  }
+
+  function stopAutoScroll() {
+    if (autoScrollInterval) {
+      clearInterval(autoScrollInterval);
+      autoScrollInterval = null;
+    }
+    const btn = $('btn-autoscroll');
+    if (btn) {
+      btn.classList.remove('autoscroll-active');
+      btn.textContent = '▶';
+    }
+  }
+
+  function toggleAutoScroll() {
+    if (autoScrollInterval) {
+      stopAutoScroll();
+    } else {
+      startAutoScroll();
+    }
+  }
+
+  function cycleAutoScrollSpeed() {
+    autoScrollSpeed = (autoScrollSpeed + 1) % AUTO_SCROLL_SPEEDS.length;
+    if (autoScrollInterval) {
+      startAutoScroll(); // Restart with new speed
+    }
+    const labels = ['Slow', 'Medium', 'Fast'];
+    showToast(`Scroll speed: ${labels[autoScrollSpeed]}`, 'success');
+  }
+
   // ================================================
   // Sidebar Functions
   // ================================================
@@ -453,8 +516,8 @@
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
       dom.playlistDetail.classList.add('hidden');
-      // Reset header title
       dom.appTitle.textContent = 'Chord Library';
+      stopAutoScroll();
       renderHomeDashboard();
       return;
     }
@@ -489,6 +552,29 @@
     dom.transposeValue.className = 'transpose-value';
     if (transposeSteps > 0) dom.transposeValue.classList.add('positive');
     else if (transposeSteps < 0) dom.transposeValue.classList.add('negative');
+
+    // Key and capo info
+    const keyInfo = $('song-key-info');
+    const keyBadge = $('key-badge');
+    const capoBadge = $('capo-badge');
+    const originalKey = detectKey(song.content);
+    if (originalKey) {
+      const currentKey = transposeSteps !== 0 ? transposeNote(originalKey, transposeSteps) : originalKey;
+      const displayKey = convertNoteNotation(currentKey);
+      keyBadge.textContent = 'Key: ' + displayKey.replace('#', '♯').replace('b', '♭');
+      keyInfo.classList.remove('hidden');
+
+      const capo = getCapoInfo(originalKey, transposeSteps);
+      if (capo) {
+        const capoKey = convertNoteNotation(originalKey);
+        capoBadge.textContent = 'Capo ' + capo + ' (play ' + capoKey.replace('#', '♯').replace('b', '♭') + ')';
+        capoBadge.classList.remove('hidden');
+      } else {
+        capoBadge.classList.add('hidden');
+      }
+    } else {
+      keyInfo.classList.add('hidden');
+    }
 
     // Apply font size to song content
     const lineHeight = Math.round(currentFontSize * 1.6);
@@ -703,12 +789,14 @@
     viewingPlaylistSongIndex = -1;
     viewingFromPlaylistId = null;
     transposeSteps = 0;
+    stopAutoScroll();
 
     dom.emptyState.classList.remove('hidden');
     dom.songDetail.classList.add('hidden');
     dom.playlistDetail.classList.add('hidden');
     dom.appTitle.textContent = 'Chord Library';
     $('btn-home').classList.add('hidden');
+    $('btn-autoscroll').classList.add('hidden');
 
     renderSongList();
     renderPlaylistList();
@@ -758,6 +846,7 @@
   
   function selectSong(id, fromPlaylist = false, index = -1) {
     selectedSongId = id;
+    stopAutoScroll();
     
     // Load persistent transpose value for this song
     const song = songs.find(s => s.id === id);
@@ -777,6 +866,7 @@
     renderSongDetail();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
+    $('btn-autoscroll').classList.remove('hidden');
     
     // Announce to screen readers
     if (song) announce(`Viewing ${song.title}`);
@@ -935,11 +1025,13 @@
     viewingPlaylistSongIndex = -1;
     viewingFromPlaylistId = id; // Track for auto-add feature
     transposeSteps = 0;
+    stopAutoScroll();
     
     renderPlaylistList();
     renderPlaylistDetail();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
+    $('btn-autoscroll').classList.add('hidden');
   }
 
   function openPlaylistModal(playlistId = null) {
@@ -1473,14 +1565,14 @@
       v: SONG_QR_VERSION,
       n: song.title,
       a: song.artist || '',
-      c: song.content || ''
+      c: compressForQr(song.content || '')
     });
 
     try {
       await window.QRCode.toCanvas(dom.shareQrCanvas, payload, {
         width: 260,
         margin: 1,
-        errorCorrectionLevel: 'M'
+        errorCorrectionLevel: 'L'
       });
       if (dom.shareQrHelp) {
         dom.shareQrHelp.textContent = 'Open Add Song and tap Scan QR on another device.';
@@ -1494,6 +1586,38 @@
         showToast('Failed to generate QR: ' + message, 'error');
       }
     }
+  }
+
+  function compressForQr(content) {
+    if (!content) return '';
+    const sectionRe = /^\s*\[.+\]\s*$/;
+    const headerRe = /^(INTRO|VERSE|CHORUS|BRIDGE|OUTRO|INSTRUMENTAL|PRE-CHORUS|INTERLUDE|TAG|ENDING|KEY:)/i;
+    const lines = content.split('\n');
+    const kept = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) { kept.push(''); continue; }
+      if (sectionRe.test(trimmed) || headerRe.test(trimmed)) { kept.push(trimmed); continue; }
+      const chordRe = CHORD_RE();
+      if (chordRe.test(trimmed)) {
+        kept.push(stripLyricsFromLine(trimmed));
+        continue;
+      }
+      if (/^[-|/\\=_~]+$/.test(trimmed)) { kept.push(trimmed); continue; }
+    }
+    return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function stripLyricsFromLine(line) {
+    const re = CHORD_RE();
+    let lastChordEnd = 0;
+    let m;
+    while ((m = re.exec(line)) !== null) { lastChordEnd = m.index + m[0].length; }
+    if (lastChordEnd === 0) return line;
+    const after = line.substring(lastChordEnd);
+    // Keep trailing separators and any bracketed commands like [to instrumental]
+    const keepMatch = after.match(/^[\s|/\\()\-_~]*(\[.+\])?\s*/);
+    return line.substring(0, lastChordEnd) + (keepMatch ? keepMatch[0].trimEnd() : '');
   }
 
   function closeShareQrModal() {
@@ -1934,8 +2058,12 @@
       });
     });
     
-    // Search
-    dom.searchInput.addEventListener('input', renderSongList);
+    // Search (debounced)
+    let searchTimer = null;
+    dom.searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(renderSongList, 150);
+    });
     
     // Sort selects
     if (dom.songsSort) {
@@ -1994,15 +2122,19 @@
     
     // Transpose buttons with persistent saving
     dom.transposeUp.addEventListener('click', () => {
-      transposeSteps++;
-      saveTransposeForSong();
-      renderSongDetail();
+      if (transposeSteps < 11) {
+        transposeSteps++;
+        saveTransposeForSong();
+        renderSongDetail();
+      }
     });
     
     dom.transposeDown.addEventListener('click', () => {
-      transposeSteps--;
-      saveTransposeForSong();
-      renderSongDetail();
+      if (transposeSteps > -11) {
+        transposeSteps--;
+        saveTransposeForSong();
+        renderSongDetail();
+      }
     });
     
     dom.transposeReset.addEventListener('click', () => {
@@ -2028,6 +2160,28 @@
     // Export song button
     $('btn-export-song').addEventListener('click', () => {
       if (selectedSongId) exportSingleSong(selectedSongId);
+    });
+
+    // Auto-scroll: click to toggle, long-press to cycle speed
+    let autoScrollLongPress = null;
+    $('btn-autoscroll').addEventListener('pointerdown', () => {
+      autoScrollLongPress = setTimeout(() => {
+        autoScrollLongPress = null;
+        cycleAutoScrollSpeed();
+      }, 500);
+    });
+    $('btn-autoscroll').addEventListener('pointerup', () => {
+      if (autoScrollLongPress) {
+        clearTimeout(autoScrollLongPress);
+        autoScrollLongPress = null;
+        toggleAutoScroll();
+      }
+    });
+    $('btn-autoscroll').addEventListener('pointerleave', () => {
+      if (autoScrollLongPress) {
+        clearTimeout(autoScrollLongPress);
+        autoScrollLongPress = null;
+      }
     });
 
     // Share song via QR button

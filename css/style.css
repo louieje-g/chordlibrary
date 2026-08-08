@@ -856,6 +856,58 @@ body {
   flex-shrink: 0;
 }
 
+/* Key / Capo Info */
+.song-key-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.key-badge,
+.capo-badge {
+  padding: 1px var(--spacing-xs);
+  border-radius: 3px;
+  font-weight: 500;
+  font-size: 0.7rem;
+}
+
+.key-badge {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.capo-badge {
+  background: rgba(81, 207, 102, 0.1);
+  color: var(--success);
+}
+
+/* Auto-scroll FAB */
+.fab-autoscroll {
+  bottom: calc(var(--spacing-lg) + var(--safe-area-bottom) + 56px + var(--spacing-md) + 44px + var(--spacing-sm));
+  width: 44px;
+  height: 44px;
+  font-size: 1.2rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+}
+
+.fab-autoscroll:hover {
+  background: var(--bg-secondary);
+  color: var(--accent);
+}
+
+.fab-autoscroll.autoscroll-active {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
 .song-content {
   font-family: var(--font-mono);
   font-size: var(--font-size-base);
