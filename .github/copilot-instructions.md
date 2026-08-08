@@ -6,14 +6,17 @@ Before every deployment, ensure the following:
 
 ### 1. Update Cache Busters
 
-Increment the `?v=` query strings in `index.html` for any modified files:
+Increment the `?v=` query strings in `index.html` for **ALL** files (not just modified ones):
 - `css/style.css?v=X.X.X`
 - `js/app.js?v=X.X.X`
 - `js/sync-service.js?v=X.X.X`
+- `js/firebase-config.js?v=X.X.X`
 - `js/qrcode.js?v=X.X.X`
 
+All versions must match. Increment them all together to the same version number.
+
 Also update `sw.js`:
-- Increment `CACHE_VERSION` (e.g., `'v7'` → `'v8'`)
+- Increment `CACHE_VERSION` (e.g., `'v8'` → `'v9'`)
 - Update the `STATIC_ASSETS` array entries to match the new `?v=` values
 
 ### 2. Update Feature Tour (if new features were added)
