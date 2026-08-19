@@ -19,7 +19,7 @@ async function seedSong(page, overrides = {}) {
     localStorage.setItem('chord-library-songs', JSON.stringify([song]));
     localStorage.setItem('chord-library-playlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'preferences', 'key-capo', 'playlist-reorder', 'qr-sharing', 'library-refresh'
+      'two-column', 'preferences', 'playlist-reorder', 'qr-sharing', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();
@@ -84,6 +84,8 @@ test.describe('Inline song chord editing', () => {
     await seedSong(page, { transposeSteps: 2 });
 
     await expect(page.locator('#song-content')).toContainText('D');
+    await expect(page.locator('#key-badge')).toHaveText('Key: D');
+    await expect(page.locator('#capo-badge')).toHaveCount(0);
     await page.click('#btn-inline-edit');
 
     await expect(page.locator('#song-content')).toHaveText('C  G\nOriginal lyric');

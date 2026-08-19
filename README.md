@@ -9,7 +9,7 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Chord Transposition**: Transpose songs up or down by semitones (±11 limit) with persistent per-song values
 - **Chord Highlighting**: Automatic highlighting of sharp and flat chord patterns
 - **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) using standard #/b characters
-- **Key & Capo Display**: Auto-detected key and capo position shown when transposing
+- **Key Display**: Auto-detected key shown and updated when transposing
 - **Two-Column View**: Display long chord sheets in two balanced columns with a persistent per-song setting
 - **Adjustable Font Size**: Resize chord sheets from 8px to 30px for different screens and viewing distances
 - **Playlists**: Build performance setlists with a clear summary, guided empty state, and accessible song controls

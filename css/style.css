@@ -1514,7 +1514,7 @@ body:has(.sidebar.open) .fab {
   flex-shrink: 0;
 }
 
-/* Key / Capo Info */
+/* Detected Key Info */
 .song-key-info {
   display: flex;
   align-items: center;
@@ -1525,8 +1525,7 @@ body:has(.sidebar.open) .fab {
   color: var(--text-muted);
 }
 
-.key-badge,
-.capo-badge {
+.key-badge {
   padding: 1px var(--spacing-xs);
   border-radius: 3px;
   font-weight: 500;
@@ -1536,11 +1535,6 @@ body:has(.sidebar.open) .fab {
 .key-badge {
   background: var(--accent-dim);
   color: var(--accent);
-}
-
-.capo-badge {
-  background: rgba(81, 207, 102, 0.1);
-  color: var(--success);
 }
 
 /* Auto-scroll FAB */

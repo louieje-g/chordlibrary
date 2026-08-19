@@ -338,18 +338,6 @@
     return rootMatch ? rootMatch[1] : null;
   }
 
-  function getCapoInfo(originalKey, transposeSteps) {
-    if (!originalKey || transposeSteps === 0) return null;
-    // Capo position is the negative of transpose (e.g., transpose +2 = capo 2 play original shapes)
-    // But musicians use capo to play in easier shapes: if transposed UP, no capo needed (new key is higher)
-    // Capo is useful when the song is transposed DOWN: capo = |transposeSteps| 
-    // Actually: if you transpose +N, to play original shapes you'd capo N. 
-    // Standard: capo = (12 - Math.abs(steps)) % 12 when going down, or steps when going up
-    const capo = ((transposeSteps % 12) + 12) % 12;
-    if (capo === 0) return null;
-    return capo;
-  }
-
   function startAutoScroll() {
     stopAutoScroll();
     const btn = $('btn-autoscroll');
@@ -739,25 +727,15 @@
     if (transposeSteps > 0) dom.transposeValue.classList.add('positive');
     else if (transposeSteps < 0) dom.transposeValue.classList.add('negative');
 
-    // Key and capo info
+    // Detected key info
     const keyInfo = $('song-key-info');
     const keyBadge = $('key-badge');
-    const capoBadge = $('capo-badge');
     const originalKey = detectKey(song.content);
     if (originalKey) {
       const currentKey = transposeSteps !== 0 ? transposeNote(originalKey, transposeSteps) : originalKey;
       const displayKey = convertNoteNotation(currentKey);
       keyBadge.textContent = 'Key: ' + displayKey;
       keyInfo.classList.remove('hidden');
-
-      const capo = getCapoInfo(originalKey, transposeSteps);
-      if (capo) {
-        const capoKey = convertNoteNotation(originalKey);
-        capoBadge.textContent = 'Capo ' + capo + ' (play ' + capoKey + ')';
-        capoBadge.classList.remove('hidden');
-      } else {
-        capoBadge.classList.add('hidden');
-      }
     } else {
       keyInfo.classList.add('hidden');
     }
@@ -1792,7 +1770,7 @@
 
     qrCodeLoadPromise = (async () => {
       const candidates = [
-        './js/qrcode.js?v=1.0.3',
+        './js/qrcode.js?v=1.0.6',
         'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.js',
         'https://unpkg.com/qrcode/lib/browser.js'
       ];
