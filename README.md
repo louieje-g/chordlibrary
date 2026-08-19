@@ -9,10 +9,10 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Chord Highlighting**: Automatic highlighting of sharp and flat chord patterns
 - **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) using standard #/b characters
 - **Key & Capo Display**: Auto-detected key and capo position shown when transposing
+- **Two-Column View**: Display long chord sheets in two balanced columns with a persistent per-song setting
 - **Playlists**: Create playlists to organize songs for performances
 - **Playlist Reorder**: Drag-and-drop song ordering within playlists
 - **Playlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a playlist
-- **Auto-Scroll**: Teleprompter mode with configurable speed (slow/medium/fast) for live performance
 - **Home Dashboard**: Recently updated songs and playlists on the homepage
 - **Preferences**: Theme (dark/light) and chord notation (original/sharp/flat) settings
 - **Smart QR Sharing**: Compressed QR codes that strip lyrics for easier scanning

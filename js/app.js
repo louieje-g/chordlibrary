@@ -10,7 +10,7 @@
   // Constants & Helpers
   // ================================================
   
-  const TOUR_VERSION = '2.0';
+  const TOUR_VERSION = '2.1';
 
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
@@ -114,6 +114,7 @@
     transposeDown: $('btn-transpose-down'),
     transposeReset: $('btn-transpose-reset'),
     transposeValue: $('transpose-value'),
+    twoColumnToggle: $('two-column-toggle'),
     
     // Header
     appTitle: $('app-title'),
@@ -583,6 +584,13 @@
     dom.songContent.style.fontSize = currentFontSize + 'px';
     dom.songContent.style.lineHeight = lineHeight + 'px';
 
+    // Two-column layout is stored per song.
+    const twoColumnEnabled = song.twoColumn === true;
+    dom.songContent.classList.toggle('two-column', twoColumnEnabled);
+    if (dom.twoColumnToggle) {
+      dom.twoColumnToggle.checked = twoColumnEnabled;
+    }
+
     // Transpose and highlight chords
     const transposedContent = transposeText(song.content, transposeSteps);
     dom.songContent.innerHTML = highlightChords(transposedContent);
@@ -868,7 +876,6 @@
     renderSongDetail();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
-    $('btn-autoscroll').classList.remove('hidden');
     
     // Announce to screen readers
     if (song) announce(`Viewing ${song.title}`);
@@ -928,6 +935,7 @@
         artist,
         content,
         transposeSteps: 0,
+        twoColumn: false,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -2027,6 +2035,21 @@
   }
 
   /**
+   * Save the two-column display preference to the current song.
+   */
+  function saveTwoColumnForSong(enabled) {
+    if (!selectedSongId) return;
+    const song = songs.find(s => s.id === selectedSongId);
+    if (song) {
+      song.twoColumn = enabled;
+      song.updatedAt = Date.now();
+      saveSongs();
+      renderSongDetail();
+      announce(enabled ? 'Two-column view enabled' : 'Single-column view enabled');
+    }
+  }
+
+  /**
    * Insert a character at the current cursor position in a textarea
    */
   function insertCharAtCursor(textarea, char) {
@@ -2121,6 +2144,13 @@
         renderSongDetail();
       }
     });
+
+    // Per-song two-column display preference
+    if (dom.twoColumnToggle) {
+      dom.twoColumnToggle.addEventListener('change', (e) => {
+        saveTwoColumnForSong(e.target.checked);
+      });
+    }
     
     // Transpose buttons with persistent saving
     dom.transposeUp.addEventListener('click', () => {

@@ -185,6 +185,11 @@
               </button>
             </div>
             <div class="song-toolbar-right">
+              <label class="column-toggle" title="Display this song in two columns">
+                <span class="column-toggle-label">2 Col</span>
+                <input type="checkbox" id="two-column-toggle" aria-label="Display this song in two columns" />
+                <span class="column-toggle-track" aria-hidden="true"></span>
+              </label>
               <select class="font-size-select" id="font-size-select" title="Font Size">
                 <option value="10">10</option>
                 <option value="12">12</option>
@@ -465,9 +470,9 @@
       <h2 class="tour-title">🎉 What's New</h2>
       <div class="tour-slides" id="tour-slides">
         <div class="tour-slide active" data-slide="0">
-          <div class="tour-slide-icon">🏠</div>
-          <h3>Home Dashboard</h3>
-          <p>Your homepage now shows recently updated songs and playlists for quick access.</p>
+          <div class="tour-slide-icon">📖</div>
+          <h3>Two-Column Song View</h3>
+          <p>Use the 2 Col switch in the song toolbar to fit long chord sheets into two columns. Your choice is saved per song.</p>
         </div>
         <div class="tour-slide" data-slide="1">
           <div class="tour-slide-icon">⚙️</div>
@@ -475,21 +480,16 @@
           <p>Tap your profile icon to access Preferences — choose theme (dark/light) and chord notation (sharp # or flat b).</p>
         </div>
         <div class="tour-slide" data-slide="2">
-          <div class="tour-slide-icon">▶</div>
-          <h3>Auto-Scroll</h3>
-          <p>Tap the play button (bottom-right) while viewing a song to auto-scroll. Long-press to cycle speed.</p>
-        </div>
-        <div class="tour-slide" data-slide="3">
           <div class="tour-slide-icon">🎵</div>
           <h3>Key &amp; Capo Display</h3>
           <p>The detected key and capo position are shown below the toolbar when you transpose.</p>
         </div>
-        <div class="tour-slide" data-slide="4">
+        <div class="tour-slide" data-slide="3">
           <div class="tour-slide-icon">↕️</div>
           <h3>Playlist Reorder</h3>
           <p>Drag the ⋮⋮ handle on playlist songs to reorder them. Long-press the handle on mobile.</p>
         </div>
-        <div class="tour-slide" data-slide="5">
+        <div class="tour-slide" data-slide="4">
           <div class="tour-slide-icon">📱</div>
           <h3>Smarter QR Sharing</h3>
           <p>QR codes are now lighter — lyrics are stripped, keeping only chords and structure for easier scanning.</p>
