@@ -2633,6 +2633,20 @@ body:has(.sidebar.open) .fab {
   gap: 4px;
 }
 
+.inline-char-buttons {
+  margin-left: auto;
+}
+
+.inline-char-buttons .char-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.legacy-inline-char-buttons {
+  justify-content: flex-end;
+  margin: 0 0 var(--spacing-sm);
+}
+
 .char-btn {
   width: 30px;
   height: 26px;

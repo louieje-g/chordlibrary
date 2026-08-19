@@ -15,7 +15,7 @@
   <link rel="icon" href="icons/favicon-32x32.png" type="image/png" sizes="32x32" />
   <link rel="icon" href="icons/favicon-16x16.png" type="image/png" sizes="16x16" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180" />
-  <link rel="stylesheet" href="css/style.css?v=1.0.7" />
+  <link rel="stylesheet" href="css/style.css?v=1.0.8" />
 </head>
 
 <body>
@@ -392,6 +392,14 @@
             <div class="song-key-info hidden" id="song-key-info">
               <span class="key-badge" id="key-badge"></span>
             </div>
+            <div class="char-buttons inline-char-buttons hidden" id="contenteditable-char-buttons"
+              aria-label="Insert chord character">
+              <button type="button" class="char-btn" data-inline-char="b" aria-label="Insert b">b</button>
+              <button type="button" class="char-btn" data-inline-char="#" aria-label="Insert #">#</button>
+              <button type="button" class="char-btn" data-inline-char="/" aria-label="Insert /">/</button>
+              <button type="button" class="char-btn" data-inline-char="|" aria-label="Insert |">|</button>
+              <button type="button" class="char-btn" data-inline-char="-" aria-label="Insert -">-</button>
+            </div>
             <button class="btn-inline-edit" id="btn-inline-edit" type="button"
               aria-label="Inline edit lyrics and chords" title="Inline edit lyrics and chords">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -426,6 +434,14 @@
                   <span class="inline-editor-note hidden" id="inline-editor-note">Editing the original, untransposed chords</span>
                 </div>
                 <span class="inline-editor-shortcut" aria-hidden="true">Ctrl/⌘ + S to save</span>
+              </div>
+              <div class="char-buttons inline-char-buttons legacy-inline-char-buttons"
+                aria-label="Insert chord character">
+                <button type="button" class="char-btn" data-legacy-inline-char="b" aria-label="Insert b">b</button>
+                <button type="button" class="char-btn" data-legacy-inline-char="#" aria-label="Insert #">#</button>
+                <button type="button" class="char-btn" data-legacy-inline-char="/" aria-label="Insert /">/</button>
+                <button type="button" class="char-btn" data-legacy-inline-char="|" aria-label="Insert |">|</button>
+                <button type="button" class="char-btn" data-legacy-inline-char="-" aria-label="Insert -">-</button>
               </div>
               <div class="inline-song-edit-surface">
                 <pre class="inline-song-highlight" id="inline-song-highlight" aria-hidden="true"></pre>
@@ -740,10 +756,10 @@
           <h3>Playlist Reorder</h3>
           <p>Drag the ⋮⋮ handle on playlist songs to reorder them. Long-press the handle on mobile.</p>
         </div>
-        <div class="tour-slide" data-slide="4" data-feature="qr-sharing" data-introduced="2.0">
-          <div class="tour-slide-icon">📱</div>
-          <h3>Smarter QR Sharing</h3>
-          <p>QR codes are now lighter — lyrics are stripped, keeping only chords and structure for easier scanning.</p>
+        <div class="tour-slide" data-slide="4" data-feature="inline-edit-tools" data-introduced="2.4">
+          <div class="tour-slide-icon">✏️</div>
+          <h3>Faster Inline Chord Editing</h3>
+          <p>Edit from the top of the chord sheet and use the b, #, /, |, and - buttons to enter chord symbols quickly.</p>
         </div>
         <div class="tour-slide" data-slide="5" data-feature="library-refresh" data-introduced="2.2">
           <div class="tour-slide-icon">✨</div>
@@ -763,12 +779,12 @@
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script defer src="js/qrcode.js?v=1.0.7"></script>
+  <script defer src="js/qrcode.js?v=1.0.8"></script>
 
   <!-- App Scripts -->
-  <script defer src="js/firebase-config.js?v=1.0.7"></script>
-  <script defer src="js/sync-service.js?v=1.0.7"></script>
-  <script defer src="js/app.js?v=1.0.7"></script>
+  <script defer src="js/firebase-config.js?v=1.0.8"></script>
+  <script defer src="js/sync-service.js?v=1.0.8"></script>
+  <script defer src="js/app.js?v=1.0.8"></script>
 
   <!-- Service Worker registration for offline support -->
   <script>

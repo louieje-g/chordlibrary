@@ -10,7 +10,7 @@
   // Constants & Helpers
   // ================================================
   
-  const TOUR_VERSION = '2.3';
+  const TOUR_VERSION = '2.4';
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 30;
   // Rollback switch: set to 'legacy' to restore the full textarea editor.
@@ -149,6 +149,7 @@
     songContentSection: $('song-content-section'),
     inlineEditButton: $('btn-inline-edit'),
     contentEditableActions: $('contenteditable-actions'),
+    contentEditableCharButtons: $('contenteditable-char-buttons'),
     contentEditableHighlight: $('contenteditable-highlight'),
     inlineSongEditor: $('inline-song-editor'),
     inlineSongHighlight: $('inline-song-highlight'),
@@ -778,6 +779,7 @@
     dom.songContent.classList.toggle('is-content-editing', isContentEditableEditing);
     dom.inlineSongEditor.classList.toggle('hidden', !isLegacyInlineEditing);
     dom.contentEditableActions.classList.toggle('hidden', !isContentEditableEditing);
+    dom.contentEditableCharButtons.classList.toggle('hidden', !isContentEditableEditing);
     dom.contentEditableHighlight.classList.toggle('hidden', !isContentEditableEditing);
     dom.inlineEditButton.classList.toggle('hidden', isInlineEditing);
     dom.inlineEditorNote.classList.toggle('hidden', !isLegacyInlineEditing || transposeSteps === 0);
@@ -1111,7 +1113,12 @@
   }
 
   function openSongModal(songId = null) {
+    const wasInlineEditing = Boolean(inlineEditingSongId);
     if (!requestDiscardInlineEdit()) return;
+    if (wasInlineEditing && selectedSongId) {
+      renderSongDetail();
+      announce('Inline editing cancelled');
+    }
     editingSongId = songId;
     stopQrScan();
     closeScannerOverlay();
@@ -2350,7 +2357,7 @@
       const selection = window.getSelection();
       if (selection) {
         selection.selectAllChildren(dom.songContent);
-        selection.collapseToEnd();
+        selection.collapseToStart();
       }
     });
     announce(`Directly editing ${song.title}`);
@@ -2504,6 +2511,7 @@
     dom.songContent.removeAttribute('aria-label');
     dom.songContent.removeAttribute('spellcheck');
     dom.contentEditableActions.classList.add('hidden');
+    dom.contentEditableCharButtons.classList.add('hidden');
     dom.contentEditableHighlight.classList.add('hidden');
     dom.songContentSection.style.removeProperty('--inline-editor-top');
     dom.songContentSection.style.removeProperty('--inline-editor-left');
@@ -2564,6 +2572,7 @@
     textarea.value = text.substring(0, start) + char + text.substring(end);
     textarea.selectionStart = textarea.selectionEnd = start + char.length;
     textarea.focus();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   // ================================================
@@ -2877,10 +2886,24 @@
     }
     
     // Character insert buttons
-    $$('.char-btn').forEach(btn => {
+    $$('#song-modal .char-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const char = btn.dataset.char;
         insertCharAtCursor(dom.songContentInput, char);
+      });
+    });
+
+    $$('[data-inline-char]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (inlineEditingMode !== 'contenteditable') return;
+        insertPlainTextIntoContentEditable(btn.dataset.inlineChar);
+      });
+    });
+
+    $$('[data-legacy-inline-char]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (inlineEditingMode !== 'legacy') return;
+        insertCharAtCursor(dom.inlineSongContent, btn.dataset.legacyInlineChar);
       });
     });
     

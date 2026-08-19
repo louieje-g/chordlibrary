@@ -19,7 +19,7 @@ async function seedSong(page, overrides = {}) {
     localStorage.setItem('chord-library-songs', JSON.stringify([song]));
     localStorage.setItem('chord-library-playlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'qr-sharing', 'library-refresh'
+      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'inline-edit-tools', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();
@@ -38,6 +38,21 @@ test.describe('Inline song chord editing', () => {
     await expect(page.locator('#contenteditable-actions')).toBeVisible();
     await expect(page.locator('#contenteditable-highlight')).toBeVisible();
     expect(await page.locator('#contenteditable-highlight .chord').allTextContents()).toEqual(['C', 'G']);
+
+    const caret = await page.evaluate(() => {
+      const content = document.getElementById('song-content');
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return null;
+      const activeRange = selection.getRangeAt(0);
+      const precedingRange = document.createRange();
+      precedingRange.selectNodeContents(content);
+      precedingRange.setEnd(activeRange.startContainer, activeRange.startOffset);
+      return {
+        collapsed: activeRange.collapsed,
+        charactersBeforeCaret: precedingRange.toString().length
+      };
+    });
+    expect(caret).toEqual({ collapsed: true, charactersBeforeCaret: 0 });
 
     const layout = await page.evaluate(() => {
       const content = document.getElementById('song-content');
@@ -78,6 +93,60 @@ test.describe('Inline song chord editing', () => {
       JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
     );
     expect(storedContent).toBe('[Chorus]\nD  A\nUpdated lyric');
+  });
+
+  test('inserts chord characters from the inline editing toolbar', async ({ page }) => {
+    await seedSong(page);
+    await page.click('#btn-inline-edit');
+
+    const charButtons = page.locator('#contenteditable-char-buttons .char-btn');
+    await expect(charButtons).toHaveCount(5);
+    await expect(page.locator('#contenteditable-char-buttons')).toBeVisible();
+
+    for (const char of ['b', '#', '/', '|', '-']) {
+      await page.locator(`#contenteditable-char-buttons [data-inline-char="${char}"]`).click();
+    }
+
+    await expect(page.locator('#song-content')).toHaveText('b#/|-C  G\nOriginal lyric');
+    await page.click('#btn-save-content-edit');
+    const storedContent = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
+    );
+    expect(storedContent).toBe('b#/|-C  G\nOriginal lyric');
+  });
+
+  test('cancels inline editing before opening Edit song info', async ({ page }) => {
+    await seedSong(page);
+    await page.click('#btn-inline-edit');
+    await expect(page.locator('#contenteditable-actions')).toBeVisible();
+
+    await page.click('#btn-song-actions');
+    await page.click('#btn-edit-song');
+
+    await expect(page.locator('#song-modal')).toBeVisible();
+    await expect(page.locator('#song-content')).not.toHaveAttribute('contenteditable', 'plaintext-only');
+    await expect(page.locator('#contenteditable-actions')).toBeHidden();
+    await expect(page.locator('#contenteditable-char-buttons')).toBeHidden();
+    await expect(page.locator('#contenteditable-highlight')).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/inline-edit-active/);
+    await expect(page.locator('#song-content')).toContainText('Original lyric');
+  });
+
+  test('keeps inline editing active when discarding changes is declined', async ({ page }) => {
+    await seedSong(page);
+    await page.click('#btn-inline-edit');
+    await page.fill('#song-content', 'Unsaved inline draft');
+    page.once('dialog', dialog => dialog.dismiss());
+
+    await page.click('#btn-song-actions');
+    await page.click('#btn-edit-song');
+
+    await expect(page.locator('#song-modal')).toBeHidden();
+    await expect(page.locator('#song-content')).toHaveAttribute('contenteditable', 'plaintext-only');
+    await expect(page.locator('#contenteditable-actions')).toBeVisible();
+    await expect(page.locator('#contenteditable-highlight')).toBeVisible();
+    await expect(page.locator('body')).toHaveClass(/inline-edit-active/);
+    await expect(page.locator('#song-content')).toHaveText('Unsaved inline draft');
   });
 
   test('edits original chords when the viewer is transposed', async ({ page }) => {
@@ -162,9 +231,17 @@ test.describe('Inline song chord editing', () => {
   test('preserves a new line entered with the keyboard', async ({ page }) => {
     await seedSong(page);
     await page.click('#btn-inline-edit');
-    await page.locator('#song-content').press('Control+End');
-    await page.locator('#song-content').press('Enter');
-    await page.locator('#song-content').pressSequentially('Added line');
+    await page.locator('#song-content').evaluate((content) => {
+      content.focus();
+      const range = document.createRange();
+      range.selectNodeContents(content);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Added line');
     await page.click('#btn-save-content-edit');
 
     const storedContent = await page.evaluate(() =>

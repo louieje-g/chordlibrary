@@ -35,7 +35,7 @@ async function seedLibrary(page, options = {}) {
     localStorage.setItem('chord-library-songs', JSON.stringify(songs));
     localStorage.setItem('chord-library-playlists', JSON.stringify(playlists));
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'qr-sharing', 'library-refresh'
+      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'inline-edit-tools', 'library-refresh'
     ]));
   }, options);
   await page.reload();
