@@ -10,6 +10,7 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) using standard #/b characters
 - **Key & Capo Display**: Auto-detected key and capo position shown when transposing
 - **Two-Column View**: Display long chord sheets in two balanced columns with a persistent per-song setting
+- **Adjustable Font Size**: Resize chord sheets from 8px to 30px for different screens and viewing distances
 - **Playlists**: Create playlists to organize songs for performances
 - **Playlist Reorder**: Drag-and-drop song ordering within playlists
 - **Playlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a playlist
@@ -21,7 +22,7 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Mobile-First Design**: Optimized for mobile devices with responsive layout
 - **Offline Storage**: Full PWA with service worker for offline use
 - **Search**: Filter songs by title, artist, or content
-- **Feature Tour**: One-time "What's New" overlay for major updates
+- **Feature Tour**: "What's New" overlay that only presents features the user has not already seen
 
 ## Usage
 

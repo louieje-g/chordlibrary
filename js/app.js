@@ -11,6 +11,8 @@
   // ================================================
   
   const TOUR_VERSION = '2.1';
+  const MIN_FONT_SIZE = 8;
+  const MAX_FONT_SIZE = 30;
 
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
@@ -19,7 +21,8 @@
     THEME: 'chord-library-theme',
     SIDEBAR_SCROLL: 'chord-library-sidebar-scroll',
     NOTATION: 'chord-library-notation',
-    TOUR_SEEN: 'chord-library-tour-seen'
+    TOUR_SEEN: 'chord-library-tour-seen',
+    TOUR_FEATURES_SEEN: 'chord-library-tour-features-seen'
   };
 
   // Musical notes for transposition
@@ -55,6 +58,12 @@
    */
   function $$(selector) {
     return document.querySelectorAll(selector);
+  }
+
+  function clampFontSize(value) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return 14;
+    return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, parsed));
   }
 
   // ================================================
@@ -115,6 +124,8 @@
     transposeReset: $('btn-transpose-reset'),
     transposeValue: $('transpose-value'),
     twoColumnToggle: $('two-column-toggle'),
+    songActionsButton: $('btn-song-actions'),
+    songActionsMenu: $('song-actions-menu'),
     
     // Header
     appTitle: $('app-title'),
@@ -521,6 +532,7 @@
       dom.playlistDetail.classList.add('hidden');
       dom.appTitle.textContent = 'Chord Library';
       stopAutoScroll();
+      setSongActionsVisible(false);
       renderHomeDashboard();
       return;
     }
@@ -807,6 +819,7 @@
     dom.appTitle.textContent = 'Chord Library';
     $('btn-home').classList.add('hidden');
     $('btn-autoscroll').classList.add('hidden');
+    setSongActionsVisible(false);
 
     renderSongList();
     renderPlaylistList();
@@ -876,6 +889,7 @@
     renderSongDetail();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
+    setSongActionsVisible(true);
     
     // Announce to screen readers
     if (song) announce(`Viewing ${song.title}`);
@@ -1042,6 +1056,7 @@
     closeSidebar();
     $('btn-home').classList.remove('hidden');
     $('btn-autoscroll').classList.add('hidden');
+    setSongActionsVisible(false);
   }
 
   function openPlaylistModal(playlistId = null) {
@@ -2049,6 +2064,31 @@
     }
   }
 
+  function closeSongActionsMenu() {
+    if (!dom.songActionsMenu || !dom.songActionsButton) return;
+    dom.songActionsMenu.classList.add('hidden');
+    dom.songActionsButton.setAttribute('aria-expanded', 'false');
+    dom.songActionsButton.setAttribute('aria-label', 'Open song actions');
+  }
+
+  function toggleSongActionsMenu() {
+    if (!dom.songActionsMenu || !dom.songActionsButton) return;
+    const willOpen = dom.songActionsMenu.classList.contains('hidden');
+    dom.songActionsMenu.classList.toggle('hidden', !willOpen);
+    dom.songActionsButton.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    dom.songActionsButton.setAttribute('aria-label', willOpen ? 'Close song actions' : 'Open song actions');
+    if (willOpen) {
+      const firstAction = dom.songActionsMenu.querySelector('[role="menuitem"]');
+      if (firstAction) firstAction.focus();
+    }
+  }
+
+  function setSongActionsVisible(visible) {
+    if (!dom.songActionsButton) return;
+    dom.songActionsButton.classList.toggle('hidden', !visible);
+    if (!visible) closeSongActionsMenu();
+  }
+
   /**
    * Insert a character at the current cursor position in a textarea
    */
@@ -2068,6 +2108,30 @@
   function initEventListeners() {
     // Home FAB button
     $('btn-home').addEventListener('click', goHome);
+
+    // Floating song actions menu
+    if (dom.songActionsButton && dom.songActionsMenu) {
+      dom.songActionsButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSongActionsMenu();
+      });
+      dom.songActionsMenu.addEventListener('click', (e) => e.stopPropagation());
+      dom.songActionsMenu.addEventListener('keydown', (e) => {
+        const items = Array.from(dom.songActionsMenu.querySelectorAll('[role="menuitem"]'));
+        const currentIndex = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const direction = e.key === 'ArrowDown' ? 1 : -1;
+          const nextIndex = (currentIndex + direction + items.length) % items.length;
+          items[nextIndex].focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeSongActionsMenu();
+          dom.songActionsButton.focus();
+        }
+      });
+      document.addEventListener('click', closeSongActionsMenu);
+    }
 
     // Menu toggle
     dom.menuToggle.addEventListener('click', toggleSidebar);
@@ -2138,7 +2202,8 @@
     
     // Font size selector with persistence
     dom.fontSizeSelect.addEventListener('change', (e) => {
-      currentFontSize = parseInt(e.target.value, 10);
+      currentFontSize = clampFontSize(e.target.value);
+      e.target.value = currentFontSize.toString();
       localStorage.setItem(STORAGE_KEYS.FONT_SIZE, currentFontSize.toString());
       if (selectedSongId) {
         renderSongDetail();
@@ -2186,11 +2251,13 @@
         renderPlaylistDetail();
         renderPlaylistList();
         dom.appTitle.textContent = 'Chord Library';
+        setSongActionsVisible(false);
       }
     });
     
     // Export song button
     $('btn-export-song').addEventListener('click', () => {
+      closeSongActionsMenu();
       if (selectedSongId) exportSingleSong(selectedSongId);
     });
 
@@ -2218,16 +2285,19 @@
 
     // Share song via QR button
     $('btn-share-song').addEventListener('click', () => {
+      closeSongActionsMenu();
       if (selectedSongId) shareSongViaQr(selectedSongId);
     });
 
     // Edit song button
     $('btn-edit-song').addEventListener('click', () => {
+      closeSongActionsMenu();
       if (selectedSongId) openSongModal(selectedSongId);
     });
     
     // Delete song button
     $('btn-delete-song').addEventListener('click', () => {
+      closeSongActionsMenu();
       if (selectedSongId) deleteSong(selectedSongId);
     });
     
@@ -2330,6 +2400,7 @@
     document.addEventListener('keydown', (e) => {
       // Close modals on Escape (except song modal to prevent accidental loss of input)
       if (e.key === 'Escape') {
+        closeSongActionsMenu();
         // Song modal is excluded - only Cancel and Save buttons close it
         if (!dom.playlistModal.classList.contains('hidden')) closePlaylistModal();
         if (!dom.addSongsModal.classList.contains('hidden')) closeAddSongsModal();
@@ -2413,45 +2484,110 @@
   // Feature Tour
   // ================================================
 
-  function showTourIfNeeded() {
-    const seen = localStorage.getItem(STORAGE_KEYS.TOUR_SEEN);
-    if (seen === TOUR_VERSION) return;
-    const overlay = $('tour-overlay');
-    if (!overlay) return;
-    overlay.classList.remove('hidden');
-    initTour();
+  function compareTourVersions(a, b) {
+    const aParts = String(a || '0').split('.').map(Number);
+    const bParts = String(b || '0').split('.').map(Number);
+    const length = Math.max(aParts.length, bParts.length);
+    for (let i = 0; i < length; i++) {
+      const difference = (aParts[i] || 0) - (bParts[i] || 0);
+      if (difference !== 0) return difference;
+    }
+    return 0;
   }
 
-  function initTour() {
-    const slides = document.querySelectorAll('.tour-slide');
+  function getSeenTourFeatures() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.TOUR_FEATURES_SEEN) || '[]');
+      return new Set(Array.isArray(saved) ? saved : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveSeenTourFeatures(seenFeatures) {
+    localStorage.setItem(
+      STORAGE_KEYS.TOUR_FEATURES_SEEN,
+      JSON.stringify(Array.from(seenFeatures).sort())
+    );
+  }
+
+  function migrateLegacyTourProgress(slides, seenFeatures) {
+    const legacyVersion = localStorage.getItem(STORAGE_KEYS.TOUR_SEEN);
+    if (!legacyVersion) return;
+
+    let changed = false;
+    slides.forEach(slide => {
+      const featureId = slide.dataset.feature;
+      const introducedVersion = slide.dataset.introduced || TOUR_VERSION;
+      if (featureId && compareTourVersions(introducedVersion, legacyVersion) <= 0 && !seenFeatures.has(featureId)) {
+        seenFeatures.add(featureId);
+        changed = true;
+      }
+    });
+    if (changed) saveSeenTourFeatures(seenFeatures);
+  }
+
+  function showTourIfNeeded() {
+    const overlay = $('tour-overlay');
+    if (!overlay) return;
+
+    const allSlides = Array.from(document.querySelectorAll('.tour-slide'));
+    const seenFeatures = getSeenTourFeatures();
+    migrateLegacyTourProgress(allSlides, seenFeatures);
+
+    const unseenSlides = allSlides.filter(slide => {
+      const featureId = slide.dataset.feature;
+      return featureId && !seenFeatures.has(featureId);
+    });
+    if (unseenSlides.length === 0) return;
+
+    overlay.classList.remove('hidden');
+    initTour(unseenSlides, seenFeatures);
+  }
+
+  function initTour(slides, seenFeatures) {
     const dotsContainer = $('tour-dots');
     const btnNext = $('tour-next');
     const btnSkip = $('tour-skip');
     let current = 0;
 
-    dotsContainer.innerHTML = Array.from(slides).map((_, i) =>
+    dotsContainer.innerHTML = slides.map((_, i) =>
       '<span class="tour-dot ' + (i === 0 ? 'active' : '') + '"></span>'
     ).join('');
 
     function goTo(index) {
-      slides.forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tour-slide').forEach(s => s.classList.remove('active'));
       slides[index].classList.add('active');
       dotsContainer.querySelectorAll('.tour-dot').forEach((d, i) => {
         d.classList.toggle('active', i === index);
       });
       current = index;
       btnNext.textContent = current === slides.length - 1 ? 'Done' : 'Next';
+
+      const featureId = slides[index].dataset.feature;
+      if (featureId && !seenFeatures.has(featureId)) {
+        seenFeatures.add(featureId);
+        saveSeenTourFeatures(seenFeatures);
+      }
     }
 
-    btnNext.addEventListener('click', () => {
+    btnNext.onclick = () => {
       if (current < slides.length - 1) {
         goTo(current + 1);
       } else {
         dismissTour();
       }
-    });
+    };
 
-    btnSkip.addEventListener('click', dismissTour);
+    btnSkip.onclick = () => {
+      slides.forEach(slide => {
+        if (slide.dataset.feature) seenFeatures.add(slide.dataset.feature);
+      });
+      saveSeenTourFeatures(seenFeatures);
+      dismissTour();
+    };
+
+    goTo(0);
   }
 
   function dismissTour() {
@@ -2475,12 +2611,13 @@
     // Load persisted font size
     const savedFontSize = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
     if (savedFontSize) {
-      currentFontSize = parseInt(savedFontSize, 10) || 14;
+      currentFontSize = clampFontSize(savedFontSize);
+      localStorage.setItem(STORAGE_KEYS.FONT_SIZE, currentFontSize.toString());
       if (dom.fontSizeSelect) {
         dom.fontSizeSelect.value = currentFontSize.toString();
       }
     } else if (dom.fontSizeSelect) {
-      currentFontSize = parseInt(dom.fontSizeSelect.value, 10) || 14;
+      currentFontSize = clampFontSize(dom.fontSizeSelect.value);
     }
     
     // Restore sidebar scroll position

@@ -153,6 +153,93 @@ body {
   color: var(--accent);
 }
 
+.song-actions-control {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.btn-song-actions svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.btn-song-actions[aria-expanded="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.song-actions-menu {
+  position: absolute;
+  top: calc(100% + var(--spacing-sm));
+  right: 0;
+  width: 200px;
+  padding: var(--spacing-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 95;
+  animation: viewFadeIn 0.18s ease;
+}
+
+.song-action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 10px var(--spacing-sm);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.song-action-menu-item:hover,
+.song-action-menu-item:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.song-action-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.song-action-menu-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.song-action-menu-divider {
+  height: 1px;
+  margin: var(--spacing-xs) var(--spacing-sm);
+  background: var(--border-color);
+}
+
+.song-action-menu-danger {
+  color: var(--danger);
+}
+
+.song-action-menu-danger:hover,
+.song-action-menu-danger:focus-visible {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--danger-hover);
+}
+
 .fab:active {
   transform: scale(0.95);
 }
@@ -671,7 +758,7 @@ body {
   white-space: nowrap;
 }
 
-/* Song Toolbar (Font size, Transpose, Edit, Delete in one row) */
+/* Song Toolbar */
 .song-toolbar {
   display: flex;
   align-items: center;
@@ -681,7 +768,7 @@ body {
   border-radius: 8px;
   margin-bottom: var(--spacing-sm);
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow: visible;
   animation: viewFadeIn 0.2s ease;
 }
 
@@ -2004,6 +2091,7 @@ body {
   .song-toolbar,
   .transpose-bar,
   .song-actions,
+  .song-actions-menu,
   .fab,
   .btn,
   .update-banner,
