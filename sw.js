@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 
@@ -22,7 +22,10 @@ const STATIC_ASSETS = [
   './js/sync-service.js?v=1.0.4',
   './js/qrcode.js',
   './js/qrcode.js?v=1.0.4',
-  './icons/icon.svg',
+  './icons/favicon.ico',
+  './icons/favicon-16x16.png',
+  './icons/favicon-32x32.png',
+  './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];

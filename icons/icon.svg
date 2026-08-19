@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <circle cx="256" cy="256" r="246" fill="#1a1a2e"/>
-  <!-- Note head -->
-  <ellipse cx="215" cy="328" rx="87" ry="72" fill="#4dabf7"/>
-  <!-- Note stem -->
-  <rect x="293" y="128" width="21" height="200" fill="#4dabf7"/>
-  <!-- Flag -->
-  <polyline points="314,128 368,215 348,282" stroke="#4dabf7" stroke-width="21" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-</svg>
