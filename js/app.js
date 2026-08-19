@@ -35,6 +35,9 @@
     `(?<![A-Za-z])([A-G][#b]?)(${QUALITY})?(\\/[A-G][#b]?(?:${QUALITY})?)?(?![a-zA-Z0-9#b])`,
     'g'
   );
+  const CHORD_TOKEN_RE = () => new RegExp(
+    `^[A-G][#b]?(?:${QUALITY})?(?:\\/[A-G][#b]?(?:${QUALITY})?)?$`
+  );
   const SONG_QR_TYPE = 'cl-song';
   const SONG_QR_VERSION = 1;
 
@@ -77,6 +80,7 @@
   let viewingPlaylistSongIndex = -1;
   let transposeSteps = 0;
   let editingSongId = null;
+  let inlineEditingSongId = null;
   let editingPlaylistId = null;
   let confirmCallback = null;
   let currentFontSize = 14; // Default font size for chord content
@@ -132,6 +136,11 @@
     
     // Song Detail
     songContent: $('song-content'),
+    songContentSection: $('song-content-section'),
+    inlineEditButton: $('btn-inline-edit'),
+    inlineSongEditor: $('inline-song-editor'),
+    inlineSongContent: $('inline-song-content'),
+    inlineEditorNote: $('inline-editor-note'),
     
     // Playlist Detail
     playlistTitle: $('playlist-title'),
@@ -287,16 +296,22 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    // Highlight chords
-    let result = escaped.replace(CHORD_RE(), (match) => {
+    // Protect bracketed directions before chord matching. A strict full-token
+    // check prevents labels such as [Chorus] and [Bridge] from being mistaken
+    // for short chords simply because they begin with C or B.
+    const bracketCommands = [];
+    const protectedText = escaped.replace(/\[([^\]]+)\]/g, (match, inner) => {
+      if (CHORD_TOKEN_RE().test(inner)) return match;
+      const index = bracketCommands.push('<span class="bracket-command">' + match + '</span>') - 1;
+      return '\uE000' + index + '\uE001';
+    });
+
+    // Highlight chords outside protected bracket commands.
+    let result = protectedText.replace(CHORD_RE(), (match) => {
       return '<span class="chord">' + match + '</span>';
     });
-    // Highlight bracketed commands like [to chorus], [intro], etc.
-    result = result.replace(/\[([^\]]+)\]/g, (match, inner) => {
-      // If the bracket content is just a chord (A-G with optional #/b and quality), don't re-highlight
-      if (/^[A-G][#b]?/.test(inner) && inner.length <= 6) return match;
-      return '<span class="bracket-command">' + match + '</span>';
-    });
+
+    result = result.replace(/\uE000(\d+)\uE001/g, (_, index) => bracketCommands[Number(index)]);
     return result;
   }
 
@@ -527,6 +542,8 @@
   function renderSongDetail() {
     const song = songs.find(s => s.id === selectedSongId);
     if (!song) {
+      inlineEditingSongId = null;
+      clearInlineEditorPosition();
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
       dom.playlistDetail.classList.add('hidden');
@@ -595,6 +612,8 @@
     const lineHeight = Math.round(currentFontSize * 1.6);
     dom.songContent.style.fontSize = currentFontSize + 'px';
     dom.songContent.style.lineHeight = lineHeight + 'px';
+    dom.inlineSongContent.style.fontSize = currentFontSize + 'px';
+    dom.inlineSongContent.style.lineHeight = lineHeight + 'px';
 
     // Two-column layout is stored per song.
     const twoColumnEnabled = song.twoColumn === true;
@@ -606,6 +625,15 @@
     // Transpose and highlight chords
     const transposedContent = transposeText(song.content, transposeSteps);
     dom.songContent.innerHTML = highlightChords(transposedContent);
+
+    // Keep inline editing stable when display preferences are changed.
+    const isInlineEditing = inlineEditingSongId === song.id;
+    document.body.classList.toggle('inline-edit-active', isInlineEditing);
+    dom.songContentSection.classList.toggle('is-editing', isInlineEditing);
+    dom.songContent.classList.toggle('hidden', isInlineEditing);
+    dom.inlineSongEditor.classList.toggle('hidden', !isInlineEditing);
+    dom.inlineEditButton.classList.toggle('hidden', isInlineEditing);
+    dom.inlineEditorNote.classList.toggle('hidden', !isInlineEditing || transposeSteps === 0);
 
     // Update navigation hint if viewing from playlist
     updateSongNavigation();
@@ -806,6 +834,7 @@
   }
 
   function goHome() {
+    if (!requestDiscardInlineEdit()) return;
     selectedSongId = null;
     selectedPlaylistId = null;
     viewingPlaylistSongIndex = -1;
@@ -868,6 +897,7 @@
   // ================================================
   
   function selectSong(id, fromPlaylist = false, index = -1) {
+    if (id !== inlineEditingSongId && !requestDiscardInlineEdit()) return;
     selectedSongId = id;
     stopAutoScroll();
     
@@ -896,6 +926,7 @@
   }
 
   function openSongModal(songId = null) {
+    if (!requestDiscardInlineEdit()) return;
     editingSongId = songId;
     stopQrScan();
     closeScannerOverlay();
@@ -1044,6 +1075,7 @@
   // ================================================
   
   function selectPlaylist(id) {
+    if (!requestDiscardInlineEdit()) return;
     selectedPlaylistId = id;
     selectedSongId = null;
     viewingPlaylistSongIndex = -1;
@@ -1225,6 +1257,7 @@
   // ================================================
   
   function navigateToPreviousSong() {
+    if (inlineEditingSongId) return;
     const playlist = playlists.find(p => p.id === selectedPlaylistId);
     if (!playlist || viewingPlaylistSongIndex <= 0) return;
     
@@ -1243,6 +1276,7 @@
   }
 
   function navigateToNextSong() {
+    if (inlineEditingSongId) return;
     const playlist = playlists.find(p => p.id === selectedPlaylistId);
     if (!playlist) return;
     
@@ -1288,7 +1322,7 @@
 
   function handleTouchStart(e) {
     // Only enable swipe when viewing a song from a playlist
-    if (viewingPlaylistSongIndex < 0) return;
+    if (viewingPlaylistSongIndex < 0 || inlineEditingSongId) return;
     
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
@@ -2064,6 +2098,87 @@
     }
   }
 
+  function startInlineEdit() {
+    const song = songs.find(s => s.id === selectedSongId);
+    if (!song) return;
+
+    stopAutoScroll();
+    closeSongActionsMenu();
+    positionInlineEditor();
+    inlineEditingSongId = song.id;
+    dom.inlineSongContent.value = song.content || '';
+    renderSongDetail();
+
+    requestAnimationFrame(() => {
+      dom.inlineSongContent.focus();
+      dom.inlineSongContent.setSelectionRange(0, 0);
+    });
+    announce(`Inline editing ${song.title}`);
+  }
+
+  function saveInlineEdit() {
+    if (!inlineEditingSongId) return;
+    const song = songs.find(s => s.id === inlineEditingSongId);
+    if (!song) return;
+
+    const content = dom.inlineSongContent.value;
+    if (!content.trim()) {
+      showToast('Lyrics and chords cannot be empty.', 'error');
+      dom.inlineSongContent.focus();
+      return;
+    }
+
+    song.content = content;
+    song.updatedAt = Date.now();
+    inlineEditingSongId = null;
+    clearInlineEditorPosition();
+    saveSongs();
+    renderSongList();
+    renderSongDetail();
+    showToast('Song chords updated', 'success');
+    announce('Song chords saved');
+    dom.inlineEditButton.focus();
+  }
+
+  function requestDiscardInlineEdit() {
+    if (!inlineEditingSongId) return true;
+    const song = songs.find(s => s.id === inlineEditingSongId);
+    const hasChanges = song && dom.inlineSongContent.value !== song.content;
+    if (hasChanges && !window.confirm('Discard your unsaved chord changes?')) return false;
+
+    inlineEditingSongId = null;
+    clearInlineEditorPosition();
+    return true;
+  }
+
+  function positionInlineEditor() {
+    const sectionRect = dom.songContentSection.getBoundingClientRect();
+    const detailRect = dom.songDetail.getBoundingClientRect();
+    const savedTop = parseFloat(dom.songContentSection.style.getPropertyValue('--inline-editor-top'));
+    const top = dom.songContentSection.classList.contains('is-editing') && Number.isFinite(savedTop)
+      ? savedTop
+      : sectionRect.top;
+
+    dom.songContentSection.style.setProperty('--inline-editor-top', Math.max(0, top) + 'px');
+    dom.songContentSection.style.setProperty('--inline-editor-left', Math.max(0, detailRect.left) + 'px');
+    dom.songContentSection.style.setProperty('--inline-editor-right', Math.max(0, window.innerWidth - detailRect.right) + 'px');
+  }
+
+  function clearInlineEditorPosition() {
+    document.body.classList.remove('inline-edit-active');
+    dom.songContentSection.classList.remove('is-editing');
+    dom.songContentSection.style.removeProperty('--inline-editor-top');
+    dom.songContentSection.style.removeProperty('--inline-editor-left');
+    dom.songContentSection.style.removeProperty('--inline-editor-right');
+  }
+
+  function cancelInlineEdit() {
+    if (!requestDiscardInlineEdit()) return;
+    renderSongDetail();
+    announce('Inline editing cancelled');
+    dom.inlineEditButton.focus();
+  }
+
   function closeSongActionsMenu() {
     if (!dom.songActionsMenu || !dom.songActionsButton) return;
     dom.songActionsMenu.classList.add('hidden');
@@ -2243,9 +2358,26 @@
     // Add song button
     $('btn-add-song').addEventListener('click', () => openSongModal());
 
+    // Edit lyrics and chords directly in the song viewer.
+    dom.inlineEditButton.addEventListener('click', startInlineEdit);
+    $('btn-save-inline-edit').addEventListener('click', saveInlineEdit);
+    $('btn-cancel-inline-edit').addEventListener('click', cancelInlineEdit);
+    dom.inlineSongContent.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveInlineEdit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineEdit();
+      }
+    });
+    window.addEventListener('resize', () => {
+      if (inlineEditingSongId) positionInlineEditor();
+    });
+
     // Back to playlist button
     $('btn-back-playlist').addEventListener('click', () => {
-      if (selectedPlaylistId) {
+      if (selectedPlaylistId && requestDiscardInlineEdit()) {
         viewingPlaylistSongIndex = -1;
         selectedSongId = null;
         renderPlaylistDetail();
