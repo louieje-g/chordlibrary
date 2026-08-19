@@ -1092,7 +1092,72 @@ body {
 }
 
 .inline-edit-active .fab {
+  display: none !important;
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.contenteditable-actions {
+  position: absolute;
+  z-index: 3;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: var(--bg-card);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-content-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-content-edit:hover,
+.btn-content-edit:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.btn-content-edit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn-content-edit-save {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.btn-content-edit-save:hover,
+.btn-content-edit-save:focus-visible {
+  background: var(--accent-hover);
+  color: var(--bg-primary);
+}
+
+.btn-content-edit svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .btn-inline-edit {
@@ -1152,6 +1217,48 @@ body {
   background: var(--bg-secondary);
   border-radius: 8px;
   overflow-x: hidden;
+}
+
+.contenteditable-highlight {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: var(--spacing-sm) 88px var(--spacing-sm) var(--spacing-md);
+  overflow: hidden;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+
+.song-content.is-content-editing {
+  position: relative;
+  z-index: 1;
+  min-height: max(320px, calc(100dvh - var(--header-height) - 104px - var(--safe-area-bottom)));
+  padding-right: 88px;
+  border: 1px solid transparent;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow-x: auto;
+  caret-color: var(--text-primary);
+  cursor: text;
+}
+
+.song-content.is-content-editing::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .inline-song-editor {
@@ -2257,6 +2364,10 @@ body {
     font-size: var(--font-size-lg);
     padding: var(--spacing-md) calc(var(--spacing-xl) + 28px) var(--spacing-md) var(--spacing-md);
   }
+
+  .contenteditable-highlight {
+    padding: var(--spacing-md) 88px var(--spacing-md) var(--spacing-md);
+  }
 }
 
 /* ================================================
@@ -2270,6 +2381,10 @@ body {
 
   .song-content {
     padding: var(--spacing-lg) calc(var(--spacing-xl) + 28px) var(--spacing-lg) var(--spacing-lg);
+  }
+
+  .contenteditable-highlight {
+    padding: var(--spacing-lg) 88px var(--spacing-lg) var(--spacing-lg);
   }
 }
 
@@ -2293,6 +2408,8 @@ body {
   }
 
   .btn-inline-edit,
+  .contenteditable-actions,
+  .contenteditable-highlight,
   .inline-song-editor {
     display: none !important;
   }
@@ -2324,6 +2441,11 @@ body {
     border-radius: 0;
     white-space: pre-wrap;
     word-wrap: break-word;
+  }
+
+  .song-content.is-content-editing {
+    color: black;
+    -webkit-text-fill-color: black;
   }
 
   .song-title {

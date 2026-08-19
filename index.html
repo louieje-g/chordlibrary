@@ -274,6 +274,20 @@
 
           <!-- Song Content -->
           <section class="song-content-section" id="song-content-section" aria-label="Song lyrics and chords">
+            <div class="contenteditable-actions hidden" id="contenteditable-actions" aria-label="Inline edit actions">
+              <button class="btn-content-edit btn-content-edit-cancel" id="btn-cancel-content-edit" type="button"
+                aria-label="Cancel inline editing" title="Cancel editing">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M18 6 6 18M6 6l12 12"></path>
+                </svg>
+              </button>
+              <button class="btn-content-edit btn-content-edit-save" id="btn-save-content-edit" type="button"
+                aria-label="Save inline changes" title="Save changes">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m5 12 4 4L19 6"></path>
+                </svg>
+              </button>
+            </div>
             <button class="btn-inline-edit" id="btn-inline-edit" type="button"
               aria-label="Inline edit lyrics and chords" title="Inline edit lyrics and chords">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -281,6 +295,7 @@
                 <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
               </svg>
             </button>
+            <pre class="contenteditable-highlight hidden" id="contenteditable-highlight" aria-hidden="true"></pre>
             <pre class="song-content" id="song-content"></pre>
             <div class="inline-song-editor hidden" id="inline-song-editor">
               <div class="inline-editor-header">

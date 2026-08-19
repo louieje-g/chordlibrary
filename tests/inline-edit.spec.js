@@ -32,33 +32,47 @@ test.describe('Inline song chord editing', () => {
 
     await expect(page.locator('#btn-inline-edit svg')).toHaveCount(1);
     await page.click('#btn-inline-edit');
-    await expect(page.locator('#inline-song-editor')).toBeVisible();
-    await expect(page.locator('#song-content')).toBeHidden();
-    await expect(page.locator('.inline-editor-header strong')).toHaveText('Editing chords');
-    expect(await page.locator('#inline-song-highlight .chord').allTextContents()).toEqual(['C', 'G']);
+    await expect(page.locator('#inline-song-editor')).toBeHidden();
+    await expect(page.locator('#song-content')).toBeVisible();
+    await expect(page.locator('#song-content')).toHaveAttribute('contenteditable', 'plaintext-only');
+    await expect(page.locator('#contenteditable-actions')).toBeVisible();
+    await expect(page.locator('#contenteditable-highlight')).toBeVisible();
+    expect(await page.locator('#contenteditable-highlight .chord').allTextContents()).toEqual(['C', 'G']);
 
     const layout = await page.evaluate(() => {
-      const section = document.getElementById('song-content-section');
-      const textarea = document.getElementById('inline-song-content');
-      const fab = document.getElementById('btn-add-song');
-      const rect = section.getBoundingClientRect();
+      const content = document.getElementById('song-content');
+      const highlight = document.getElementById('contenteditable-highlight');
+      const actions = document.getElementById('contenteditable-actions');
+      const contentRect = content.getBoundingClientRect();
+      const highlightRect = highlight.getBoundingClientRect();
+      const contentStyle = getComputedStyle(content);
+      const highlightStyle = getComputedStyle(highlight);
       return {
-        bottomGap: window.innerHeight - rect.bottom,
-        textareaHeight: textarea.getBoundingClientRect().height,
-        editorZIndex: Number(getComputedStyle(section).zIndex),
-        fabZIndex: Number(getComputedStyle(fab).zIndex)
+        contentHeight: contentRect.height,
+        actionsVisible: getComputedStyle(actions).display !== 'none',
+        editModeActive: document.body.classList.contains('inline-edit-active'),
+        layersAligned:
+          contentRect.left === highlightRect.left &&
+          contentRect.top === highlightRect.top &&
+          contentRect.width === highlightRect.width &&
+          contentRect.height === highlightRect.height &&
+          contentStyle.padding === highlightStyle.padding &&
+          contentStyle.font === highlightStyle.font &&
+          contentStyle.lineHeight === highlightStyle.lineHeight
       };
     });
-    expect(layout.bottomGap).toBeLessThanOrEqual(16);
-    expect(layout.textareaHeight).toBeGreaterThan(300);
-    expect(layout.editorZIndex).toBeGreaterThan(layout.fabZIndex);
+    expect(layout.contentHeight).toBeGreaterThan(300);
+    expect(layout.actionsVisible).toBe(true);
+    expect(layout.editModeActive).toBe(true);
+    expect(layout.layersAligned).toBe(true);
 
-    await page.fill('#inline-song-content', '[Chorus]\nD  A\nUpdated lyric');
-    await expect(page.locator('#inline-song-highlight .bracket-command')).toHaveText('[Chorus]');
-    expect(await page.locator('#inline-song-highlight .chord').allTextContents()).toEqual(['D', 'A']);
-    await page.click('#btn-save-inline-edit');
+    await page.fill('#song-content', '[Chorus]\nD  A\nUpdated lyric');
+    await expect(page.locator('#contenteditable-highlight .bracket-command')).toHaveText('[Chorus]');
+    expect(await page.locator('#contenteditable-highlight .chord').allTextContents()).toEqual(['D', 'A']);
+    await page.click('#btn-save-content-edit');
 
-    await expect(page.locator('#inline-song-editor')).toBeHidden();
+    await expect(page.locator('#song-content')).not.toHaveAttribute('contenteditable', 'plaintext-only');
+    await expect(page.locator('#contenteditable-highlight')).toBeHidden();
     await expect(page.locator('#song-content')).toContainText('Updated lyric');
     const storedContent = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
@@ -72,22 +86,36 @@ test.describe('Inline song chord editing', () => {
     await expect(page.locator('#song-content')).toContainText('D');
     await page.click('#btn-inline-edit');
 
-    await expect(page.locator('#inline-editor-note')).toBeVisible();
-    await expect(page.locator('#inline-song-content')).toHaveValue('C  G\nOriginal lyric');
+    await expect(page.locator('#song-content')).toHaveText('C  G\nOriginal lyric');
+    await expect(page.locator('#song-content')).toHaveAttribute('aria-label', 'Editing original lyrics and chords');
   });
 
   test('cancel keeps the stored song unchanged', async ({ page }) => {
     await seedSong(page);
     await page.click('#btn-inline-edit');
-    await page.fill('#inline-song-content', 'Temporary content');
+    await page.fill('#song-content', 'Temporary content');
     page.once('dialog', dialog => dialog.accept());
-    await page.click('#btn-cancel-inline-edit');
+    await page.click('#btn-cancel-content-edit');
 
     await expect(page.locator('#song-content')).toContainText('Original lyric');
     const storedContent = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
     );
     expect(storedContent).toBe('C  G\nOriginal lyric');
+  });
+
+  test('preserves a new line entered with the keyboard', async ({ page }) => {
+    await seedSong(page);
+    await page.click('#btn-inline-edit');
+    await page.locator('#song-content').press('Control+End');
+    await page.locator('#song-content').press('Enter');
+    await page.locator('#song-content').pressSequentially('Added line');
+    await page.click('#btn-save-content-edit');
+
+    const storedContent = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
+    );
+    expect(storedContent).toBe('C  G\nOriginal lyric\nAdded line');
   });
 
   test('styles bracketed section labels without mistaking them for chords', async ({ page }) => {

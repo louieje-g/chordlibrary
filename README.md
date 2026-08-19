@@ -5,7 +5,7 @@ A mobile-first offline chord library web application for musicians. Store, organ
 ## Features
 
 - **Song Management**: Add, edit, and delete songs with lyrics and chords
-- **Inline Chord Editing**: Update lyrics and chords directly in the song viewer with save and discard protection
+- **Inline Chord Editing**: Edit the chord sheet directly with real-time chord and section styling, plus save and discard protection
 - **Chord Transposition**: Transpose songs up or down by semitones (±11 limit) with persistent per-song values
 - **Chord Highlighting**: Automatic highlighting of sharp and flat chord patterns
 - **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) using standard #/b characters

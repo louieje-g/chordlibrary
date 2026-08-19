@@ -13,6 +13,8 @@
   const TOUR_VERSION = '2.1';
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 30;
+  // Rollback switch: set to 'legacy' to restore the full textarea editor.
+  const INLINE_EDIT_IMPLEMENTATION = 'contenteditable';
 
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
@@ -81,6 +83,8 @@
   let transposeSteps = 0;
   let editingSongId = null;
   let inlineEditingSongId = null;
+  let inlineEditingMode = null;
+  let inlineEditDraft = '';
   let editingPlaylistId = null;
   let confirmCallback = null;
   let currentFontSize = 14; // Default font size for chord content
@@ -138,6 +142,8 @@
     songContent: $('song-content'),
     songContentSection: $('song-content-section'),
     inlineEditButton: $('btn-inline-edit'),
+    contentEditableActions: $('contenteditable-actions'),
+    contentEditableHighlight: $('contenteditable-highlight'),
     inlineSongEditor: $('inline-song-editor'),
     inlineSongHighlight: $('inline-song-highlight'),
     inlineSongContent: $('inline-song-content'),
@@ -544,6 +550,8 @@
     const song = songs.find(s => s.id === selectedSongId);
     if (!song) {
       inlineEditingSongId = null;
+      inlineEditingMode = null;
+      inlineEditDraft = '';
       clearInlineEditorPosition();
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
@@ -613,13 +621,19 @@
     const lineHeight = Math.round(currentFontSize * 1.6);
     dom.songContent.style.fontSize = currentFontSize + 'px';
     dom.songContent.style.lineHeight = lineHeight + 'px';
+    dom.contentEditableHighlight.style.fontSize = currentFontSize + 'px';
+    dom.contentEditableHighlight.style.lineHeight = lineHeight + 'px';
     dom.inlineSongContent.style.fontSize = currentFontSize + 'px';
     dom.inlineSongContent.style.lineHeight = lineHeight + 'px';
     dom.inlineSongHighlight.style.fontSize = currentFontSize + 'px';
     dom.inlineSongHighlight.style.lineHeight = lineHeight + 'px';
 
-    // Two-column layout is stored per song.
-    const twoColumnEnabled = song.twoColumn === true;
+    const isInlineEditing = inlineEditingSongId === song.id;
+    const isLegacyInlineEditing = isInlineEditing && inlineEditingMode === 'legacy';
+    const isContentEditableEditing = isInlineEditing && inlineEditingMode === 'contenteditable';
+
+    // Direct editing stays single-column so caret movement remains predictable.
+    const twoColumnEnabled = song.twoColumn === true && !isContentEditableEditing;
     dom.songContent.classList.toggle('two-column', twoColumnEnabled);
     if (dom.twoColumnToggle) {
       dom.twoColumnToggle.checked = twoColumnEnabled;
@@ -627,16 +641,35 @@
 
     // Transpose and highlight chords
     const transposedContent = transposeText(song.content, transposeSteps);
-    dom.songContent.innerHTML = highlightChords(transposedContent);
+    if (!isContentEditableEditing) {
+      dom.songContent.innerHTML = highlightChords(transposedContent);
+    }
 
     // Keep inline editing stable when display preferences are changed.
-    const isInlineEditing = inlineEditingSongId === song.id;
     document.body.classList.toggle('inline-edit-active', isInlineEditing);
-    dom.songContentSection.classList.toggle('is-editing', isInlineEditing);
-    dom.songContent.classList.toggle('hidden', isInlineEditing);
-    dom.inlineSongEditor.classList.toggle('hidden', !isInlineEditing);
+    dom.songContentSection.classList.toggle('is-editing', isLegacyInlineEditing);
+    dom.songContentSection.classList.toggle('is-content-editing', isContentEditableEditing);
+    dom.songContent.classList.toggle('hidden', isLegacyInlineEditing);
+    dom.songContent.classList.toggle('is-content-editing', isContentEditableEditing);
+    dom.inlineSongEditor.classList.toggle('hidden', !isLegacyInlineEditing);
+    dom.contentEditableActions.classList.toggle('hidden', !isContentEditableEditing);
+    dom.contentEditableHighlight.classList.toggle('hidden', !isContentEditableEditing);
     dom.inlineEditButton.classList.toggle('hidden', isInlineEditing);
-    dom.inlineEditorNote.classList.toggle('hidden', !isInlineEditing || transposeSteps === 0);
+    dom.inlineEditorNote.classList.toggle('hidden', !isLegacyInlineEditing || transposeSteps === 0);
+
+    if (isContentEditableEditing) {
+      dom.songContent.setAttribute('contenteditable', 'plaintext-only');
+      dom.songContent.setAttribute('role', 'textbox');
+      dom.songContent.setAttribute('aria-multiline', 'true');
+      dom.songContent.setAttribute('aria-label', 'Editing original lyrics and chords');
+      dom.songContent.setAttribute('spellcheck', 'false');
+    } else {
+      dom.songContent.removeAttribute('contenteditable');
+      dom.songContent.removeAttribute('role');
+      dom.songContent.removeAttribute('aria-multiline');
+      dom.songContent.removeAttribute('aria-label');
+      dom.songContent.removeAttribute('spellcheck');
+    }
 
     // Update navigation hint if viewing from playlist
     updateSongNavigation();
@@ -2102,6 +2135,38 @@
   }
 
   function startInlineEdit() {
+    if (INLINE_EDIT_IMPLEMENTATION === 'contenteditable') {
+      startContentEditableInlineEdit();
+    } else {
+      startLegacyInlineEdit();
+    }
+  }
+
+  function startContentEditableInlineEdit() {
+    const song = songs.find(s => s.id === selectedSongId);
+    if (!song) return;
+
+    stopAutoScroll();
+    closeSongActionsMenu();
+    inlineEditingSongId = song.id;
+    inlineEditingMode = 'contenteditable';
+    inlineEditDraft = song.content || '';
+    dom.songContent.textContent = inlineEditDraft;
+    renderContentEditableHighlight();
+    renderSongDetail();
+
+    requestAnimationFrame(() => {
+      dom.songContent.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.selectAllChildren(dom.songContent);
+        selection.collapseToEnd();
+      }
+    });
+    announce(`Directly editing ${song.title}`);
+  }
+
+  function startLegacyInlineEdit() {
     const song = songs.find(s => s.id === selectedSongId);
     if (!song) return;
 
@@ -2109,6 +2174,8 @@
     closeSongActionsMenu();
     positionInlineEditor();
     inlineEditingSongId = song.id;
+    inlineEditingMode = 'legacy';
+    inlineEditDraft = '';
     dom.inlineSongContent.value = song.content || '';
     renderInlineEditHighlight();
     renderSongDetail();
@@ -2118,6 +2185,67 @@
       dom.inlineSongContent.setSelectionRange(0, 0);
     });
     announce(`Inline editing ${song.title}`);
+  }
+
+  function readContentEditableDraft() {
+    return dom.songContent.innerText.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ');
+  }
+
+  function updateContentEditableDraft() {
+    if (inlineEditingMode !== 'contenteditable') return;
+    inlineEditDraft = readContentEditableDraft();
+    renderContentEditableHighlight();
+  }
+
+  function renderContentEditableHighlight() {
+    dom.contentEditableHighlight.innerHTML = highlightChords(inlineEditDraft, true);
+  }
+
+  function insertPlainTextIntoContentEditable(text) {
+    dom.songContent.focus();
+    if (typeof document.execCommand === 'function' && document.execCommand('insertText', false, text)) return;
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const textNode = document.createTextNode(text);
+    range.insertNode(textNode);
+    range.setStartAfter(textNode);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    dom.songContent.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function saveContentEditableInlineEdit() {
+    if (!inlineEditingSongId || inlineEditingMode !== 'contenteditable') return;
+    const song = songs.find(s => s.id === inlineEditingSongId);
+    if (!song) return;
+
+    updateContentEditableDraft();
+    if (!inlineEditDraft.trim()) {
+      showToast('Lyrics and chords cannot be empty.', 'error');
+      dom.songContent.focus();
+      return;
+    }
+
+    song.content = inlineEditDraft;
+    song.updatedAt = Date.now();
+    finishInlineEditState();
+    saveSongs();
+    renderSongList();
+    renderSongDetail();
+    showToast('Song chords updated', 'success');
+    announce('Song chords saved');
+    dom.inlineEditButton.focus();
+  }
+
+  function cancelContentEditableInlineEdit() {
+    if (!requestDiscardInlineEdit()) return;
+    renderSongDetail();
+    announce('Direct editing cancelled');
+    dom.inlineEditButton.focus();
   }
 
   function saveInlineEdit() {
@@ -2134,8 +2262,7 @@
 
     song.content = content;
     song.updatedAt = Date.now();
-    inlineEditingSongId = null;
-    clearInlineEditorPosition();
+    finishInlineEditState();
     saveSongs();
     renderSongList();
     renderSongDetail();
@@ -2147,12 +2274,20 @@
   function requestDiscardInlineEdit() {
     if (!inlineEditingSongId) return true;
     const song = songs.find(s => s.id === inlineEditingSongId);
-    const hasChanges = song && dom.inlineSongContent.value !== song.content;
+    if (inlineEditingMode === 'contenteditable') updateContentEditableDraft();
+    const draft = inlineEditingMode === 'contenteditable' ? inlineEditDraft : dom.inlineSongContent.value;
+    const hasChanges = song && draft !== song.content;
     if (hasChanges && !window.confirm('Discard your unsaved chord changes?')) return false;
 
-    inlineEditingSongId = null;
-    clearInlineEditorPosition();
+    finishInlineEditState();
     return true;
+  }
+
+  function finishInlineEditState() {
+    inlineEditingSongId = null;
+    inlineEditingMode = null;
+    inlineEditDraft = '';
+    clearInlineEditorPosition();
   }
 
   function positionInlineEditor() {
@@ -2171,6 +2306,15 @@
   function clearInlineEditorPosition() {
     document.body.classList.remove('inline-edit-active');
     dom.songContentSection.classList.remove('is-editing');
+    dom.songContentSection.classList.remove('is-content-editing');
+    dom.songContent.classList.remove('is-content-editing');
+    dom.songContent.removeAttribute('contenteditable');
+    dom.songContent.removeAttribute('role');
+    dom.songContent.removeAttribute('aria-multiline');
+    dom.songContent.removeAttribute('aria-label');
+    dom.songContent.removeAttribute('spellcheck');
+    dom.contentEditableActions.classList.add('hidden');
+    dom.contentEditableHighlight.classList.add('hidden');
     dom.songContentSection.style.removeProperty('--inline-editor-top');
     dom.songContentSection.style.removeProperty('--inline-editor-left');
     dom.songContentSection.style.removeProperty('--inline-editor-right');
@@ -2376,6 +2520,31 @@
 
     // Edit lyrics and chords directly in the song viewer.
     dom.inlineEditButton.addEventListener('click', startInlineEdit);
+    $('btn-save-content-edit').addEventListener('click', saveContentEditableInlineEdit);
+    $('btn-cancel-content-edit').addEventListener('click', cancelContentEditableInlineEdit);
+    dom.songContent.addEventListener('input', updateContentEditableDraft);
+    dom.songContent.addEventListener('keydown', (e) => {
+      if (inlineEditingMode !== 'contenteditable') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveContentEditableInlineEdit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelContentEditableInlineEdit();
+      }
+    });
+    dom.songContent.addEventListener('beforeinput', (e) => {
+      if (inlineEditingMode !== 'contenteditable') return;
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
+        e.preventDefault();
+        insertPlainTextIntoContentEditable('\n');
+      }
+    });
+    dom.songContent.addEventListener('paste', (e) => {
+      if (inlineEditingMode !== 'contenteditable') return;
+      e.preventDefault();
+      insertPlainTextIntoContentEditable(e.clipboardData.getData('text/plain'));
+    });
     $('btn-save-inline-edit').addEventListener('click', saveInlineEdit);
     $('btn-cancel-inline-edit').addEventListener('click', cancelInlineEdit);
     dom.inlineSongContent.addEventListener('keydown', (e) => {
@@ -2390,7 +2559,7 @@
     dom.inlineSongContent.addEventListener('input', renderInlineEditHighlight);
     dom.inlineSongContent.addEventListener('scroll', syncInlineEditHighlightScroll);
     window.addEventListener('resize', () => {
-      if (inlineEditingSongId) positionInlineEditor();
+      if (inlineEditingMode === 'legacy') positionInlineEditor();
     });
 
     // Back to playlist button
@@ -2560,7 +2729,7 @@
       }
       
       // Arrow key navigation for playlist songs
-      if (viewingPlaylistSongIndex >= 0 && !e.target.matches('input, textarea')) {
+      if (viewingPlaylistSongIndex >= 0 && !e.target.matches('input, textarea') && !e.target.isContentEditable) {
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           navigateToPreviousSong();
