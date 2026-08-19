@@ -277,8 +277,7 @@
       .replace(/>/g, '&gt;');
     // Highlight chords
     let result = escaped.replace(CHORD_RE(), (match) => {
-      const display = match.replace(/([A-G])#/g, '$1♯').replace(/([A-G])b/g, '$1♭');
-      return '<span class="chord">' + display + '</span>';
+      return '<span class="chord">' + match + '</span>';
     });
     // Highlight bracketed commands like [to chorus], [intro], etc.
     result = result.replace(/\[([^\]]+)\]/g, (match, inner) => {
@@ -564,13 +563,13 @@
     if (originalKey) {
       const currentKey = transposeSteps !== 0 ? transposeNote(originalKey, transposeSteps) : originalKey;
       const displayKey = convertNoteNotation(currentKey);
-      keyBadge.textContent = 'Key: ' + displayKey.replace('#', '♯').replace('b', '♭');
+      keyBadge.textContent = 'Key: ' + displayKey;
       keyInfo.classList.remove('hidden');
 
       const capo = getCapoInfo(originalKey, transposeSteps);
       if (capo) {
         const capoKey = convertNoteNotation(originalKey);
-        capoBadge.textContent = 'Capo ' + capo + ' (play ' + capoKey.replace('#', '♯').replace('b', '♭') + ')';
+        capoBadge.textContent = 'Capo ' + capo + ' (play ' + capoKey + ')';
         capoBadge.classList.remove('hidden');
       } else {
         capoBadge.classList.add('hidden');

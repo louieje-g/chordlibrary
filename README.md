@@ -7,7 +7,7 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Song Management**: Add, edit, and delete songs with lyrics and chords
 - **Chord Transposition**: Transpose songs up or down by semitones (±11 limit) with persistent per-song values
 - **Chord Highlighting**: Automatic highlighting of sharp and flat chord patterns
-- **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) with proper ♯/♭ symbols
+- **Flat Chord Support**: Recognition and transposition of flat chords (Bb, Eb, etc.) using standard #/b characters
 - **Key & Capo Display**: Auto-detected key and capo position shown when transposing
 - **Playlists**: Create playlists to organize songs for performances
 - **Playlist Reorder**: Drag-and-drop song ordering within playlists
