@@ -10,7 +10,7 @@
   // Constants & Helpers
   // ================================================
   
-  const TOUR_VERSION = '2.1';
+  const TOUR_VERSION = '2.2';
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 30;
   // Rollback switch: set to 'legacy' to restore the full textarea editor.
@@ -110,8 +110,13 @@
     sidebar: $('sidebar'),
     menuToggle: $('menu-toggle'),
     searchInput: $('search-input'),
+    playlistSearchInput: $('playlist-search-input'),
     songList: $('song-list'),
     playlistList: $('playlist-list'),
+    songListSummary: $('song-list-summary'),
+    playlistListSummary: $('playlist-list-summary'),
+    songsTabCount: $('songs-tab-count'),
+    playlistsTabCount: $('playlists-tab-count'),
     songsSort: $('songs-sort'),
     playlistsSort: $('playlists-sort'),
     
@@ -152,6 +157,9 @@
     // Playlist Detail
     playlistTitle: $('playlist-title'),
     playlistDescription: $('playlist-description'),
+    playlistSongCount: $('playlist-song-count'),
+    playlistUpdated: $('playlist-updated'),
+    playlistReorderHint: $('playlist-reorder-hint'),
     playlistSongs: $('playlist-songs'),
     
     // Modals
@@ -420,6 +428,23 @@
     }
   }
 
+  function setSidebarTab(tab) {
+    if (tab !== 'songs' && tab !== 'playlists') return;
+    $$('.tab-btn').forEach(btn => {
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.tabIndex = isActive ? 0 : -1;
+    });
+    $$('.sidebar-content').forEach(content => content.classList.toggle('active', content.id === `${tab}-tab`));
+  }
+
+  function openSidebarTab(tab) {
+    setSidebarTab(tab);
+    openSidebar();
+    announce(`Showing all ${tab}`);
+  }
+
   // ================================================
   // Render Functions
   // ================================================
@@ -450,6 +475,7 @@
   function renderSongList() {
     const query = dom.searchInput.value.trim().toLowerCase();
     const sortOption = dom.songsSort ? dom.songsSort.value : 'updated-desc';
+    dom.songsTabCount.textContent = songs.length;
     
     let filtered = query
       ? songs.filter(s => 
@@ -460,45 +486,134 @@
     
     // Apply sorting
     filtered = sortItems(filtered, sortOption, 'title');
+    dom.songListSummary.textContent = query
+      ? `${filtered.length} ${filtered.length === 1 ? 'result' : 'results'}`
+      : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`;
 
     if (filtered.length === 0) {
       dom.songList.innerHTML = `
-        <li class="empty-list-message" style="padding: 16px; color: var(--text-muted); text-align: center;">
-          ${query ? 'No songs found' : 'No songs yet. Add one!'}
+        <li class="drawer-empty-state">
+          ${getHomeItemIcon('song')}
+          <strong>${query ? 'No matching songs' : 'Your song library is empty'}</strong>
+          <span>${query ? 'Try a different title, artist, or lyric.' : 'Use New to add your first song.'}</span>
         </li>
       `;
       return;
     }
 
     dom.songList.innerHTML = filtered.map((song, i) => `
-      <li class="song-item ${song.id === selectedSongId ? 'active' : ''}" data-id="${song.id}" style="animation-delay:${Math.min(i * 30, 300)}ms">
-        <div class="song-item-title">${escapeHtml(song.title)}</div>
-        ${song.artist ? `<div class="song-item-artist">${escapeHtml(song.artist)}</div>` : ''}
+      <li style="animation-delay:${Math.min(i * 30, 300)}ms">
+        <button class="song-item ${song.id === selectedSongId ? 'active' : ''}" type="button" data-id="${escapeHtml(String(song.id))}"
+          ${song.id === selectedSongId ? 'aria-current="true"' : ''}>
+          <span class="drawer-item-icon" aria-hidden="true">${getHomeItemIcon('song')}</span>
+          <span class="drawer-item-content">
+            <strong class="song-item-title">${escapeHtml(song.title)}</strong>
+            <span class="drawer-item-meta">
+              ${song.artist ? `<span>${escapeHtml(song.artist)}</span><span class="drawer-item-separator" aria-hidden="true">•</span>` : ''}
+              <span class="drawer-item-updated">${formatRelativeUpdate(song.updatedAt || song.createdAt)}</span>
+            </span>
+          </span>
+          <svg class="drawer-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 18 6-6-6-6"></path>
+          </svg>
+        </button>
       </li>
     `).join('');
   }
 
   function renderPlaylistList() {
+    const query = dom.playlistSearchInput.value.trim().toLowerCase();
     const sortOption = dom.playlistsSort ? dom.playlistsSort.value : 'updated-desc';
+    dom.playlistsTabCount.textContent = playlists.length;
+
+    let filtered = query
+      ? playlists.filter(playlist =>
+          playlist.name.toLowerCase().includes(query) ||
+          (playlist.description && playlist.description.toLowerCase().includes(query)))
+      : playlists;
+
+    filtered = sortItems(filtered, sortOption, 'name');
+    dom.playlistListSummary.textContent = query
+      ? `${filtered.length} ${filtered.length === 1 ? 'result' : 'results'}`
+      : `${playlists.length} ${playlists.length === 1 ? 'playlist' : 'playlists'}`;
     
-    if (playlists.length === 0) {
+    if (filtered.length === 0) {
       dom.playlistList.innerHTML = `
-        <li class="empty-list-message" style="padding: 16px; color: var(--text-muted); text-align: center;">
-          No playlists yet. Create one!
+        <li class="drawer-empty-state">
+          ${getHomeItemIcon('playlist')}
+          <strong>${query ? 'No matching playlists' : 'No playlists yet'}</strong>
+          <span>${query ? 'Try a different playlist name or description.' : 'Use New to build your first setlist.'}</span>
         </li>
       `;
       return;
     }
-    
-    // Apply sorting
-    const sortedPlaylists = sortItems(playlists, sortOption, 'name');
 
-    dom.playlistList.innerHTML = sortedPlaylists.map((playlist, i) => `
-      <li class="playlist-item ${playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1 ? 'active' : ''}" data-id="${playlist.id}" style="animation-delay:${Math.min(i * 30, 300)}ms">
-        <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
-        <div class="playlist-item-count">${playlist.songIds.length} songs</div>
+    dom.playlistList.innerHTML = filtered.map((playlist, i) => {
+      const isActive = playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1;
+      return `
+      <li style="animation-delay:${Math.min(i * 30, 300)}ms">
+        <button class="playlist-item ${isActive ? 'active' : ''}" type="button" data-id="${escapeHtml(String(playlist.id))}"
+          ${isActive ? 'aria-current="true"' : ''}>
+          <span class="drawer-item-icon" aria-hidden="true">${getHomeItemIcon('playlist')}</span>
+          <span class="drawer-item-content">
+            <strong class="playlist-item-name">${escapeHtml(playlist.name)}</strong>
+            <span class="drawer-item-meta">
+              <span>${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'song' : 'songs'}</span>
+              <span class="drawer-item-separator" aria-hidden="true">•</span>
+              <span class="drawer-item-updated">${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}</span>
+            </span>
+          </span>
+          <svg class="drawer-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 18 6-6-6-6"></path>
+          </svg>
+        </button>
       </li>
-    `).join('');
+    `;
+    }).join('');
+  }
+
+  function formatRelativeUpdate(timestamp) {
+    const updatedAt = Number(timestamp);
+    if (!Number.isFinite(updatedAt) || updatedAt <= 0) return 'recently';
+
+    const elapsed = Math.max(0, Date.now() - updatedAt);
+    const minutes = Math.floor(elapsed / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} min ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days} days ago`;
+
+    return new Date(updatedAt).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: new Date(updatedAt).getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+    });
+  }
+
+  function getHomeItemIcon(type) {
+    if (type === 'playlist') {
+      return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 7h9M5 12h9M5 17h6"></path>
+          <path d="M17 13v7M17 13l4-1v6"></path>
+          <circle cx="15.5" cy="20" r="1.5"></circle>
+          <circle cx="19.5" cy="18" r="1.5"></circle>
+        </svg>
+      `;
+    }
+
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M9 18V5l11-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="17" cy="16" r="3"></circle>
+      </svg>
+    `;
   }
 
   function renderHomeDashboard() {
@@ -516,33 +631,63 @@
     dashboard.classList.remove('hidden');
     fallback.style.display = 'none';
 
-    const recentSongs = [...songs].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
-    const recentPlaylists = [...playlists].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
+    const recentSongs = [...songs].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3);
+    const recentPlaylists = [...playlists].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3);
 
     $('home-recent-songs').style.display = recentSongs.length ? '' : 'none';
     $('home-recent-playlists').style.display = recentPlaylists.length ? '' : 'none';
 
     homeSongsList.innerHTML = recentSongs.map((song, i) => `
-      <li class="song-item" data-id="${song.id}" style="animation-delay:${i * 50}ms">
-        <div class="song-item-title">${escapeHtml(song.title)}</div>
-        ${song.artist ? `<div class="song-item-artist">${escapeHtml(song.artist)}</div>` : ''}
+      <li style="--home-item-delay:${i * 50}ms">
+        <button class="home-recent-item" type="button" data-home-type="song" data-id="${escapeHtml(String(song.id))}">
+          <span class="home-item-icon" aria-hidden="true">${getHomeItemIcon('song')}</span>
+          <span class="home-item-content">
+            <strong class="home-item-title">${escapeHtml(song.title)}</strong>
+            <span class="home-item-meta">
+              ${song.artist ? `<span>${escapeHtml(song.artist)}</span><span class="home-item-separator" aria-hidden="true">•</span>` : ''}
+              <span class="home-item-updated">Updated ${formatRelativeUpdate(song.updatedAt || song.createdAt)}</span>
+            </span>
+          </span>
+          <svg class="home-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 18 6-6-6-6"></path>
+          </svg>
+        </button>
       </li>
     `).join('');
 
     homePlaylistsList.innerHTML = recentPlaylists.map((playlist, i) => `
-      <li class="playlist-item" data-id="${playlist.id}" style="animation-delay:${i * 50}ms">
-        <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
-        <div class="playlist-item-count">${playlist.songIds.length} songs</div>
+      <li style="--home-item-delay:${i * 50}ms">
+        <button class="home-recent-item" type="button" data-home-type="playlist" data-id="${escapeHtml(String(playlist.id))}">
+          <span class="home-item-icon" aria-hidden="true">${getHomeItemIcon('playlist')}</span>
+          <span class="home-item-content">
+            <strong class="home-item-title">${escapeHtml(playlist.name)}</strong>
+            <span class="home-item-meta">
+              <span>${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'song' : 'songs'}</span>
+              <span class="home-item-separator" aria-hidden="true">•</span>
+              <span class="home-item-updated">Updated ${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}</span>
+            </span>
+          </span>
+          <svg class="home-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 18 6-6-6-6"></path>
+          </svg>
+        </button>
       </li>
     `).join('');
 
-    homeSongsList.onclick = (e) => {
-      const item = e.target.closest('.song-item');
-      if (item) selectSong(item.dataset.id);
-    };
-    homePlaylistsList.onclick = (e) => {
-      const item = e.target.closest('.playlist-item');
-      if (item) selectPlaylist(item.dataset.id);
+    dashboard.onclick = (e) => {
+      const viewAll = e.target.closest('.home-view-all');
+      if (viewAll) {
+        openSidebarTab(viewAll.dataset.homeTab);
+        return;
+      }
+
+      const item = e.target.closest('.home-recent-item');
+      if (!item) return;
+      if (item.dataset.homeType === 'playlist') {
+        selectPlaylist(item.dataset.id);
+      } else {
+        selectSong(item.dataset.id);
+      }
     };
   }
 
@@ -691,20 +836,26 @@
     dom.songDetail.classList.add('hidden');
     dom.playlistDetail.classList.remove('hidden');
 
-    // Reset header title when viewing playlist (not a song)
-    dom.appTitle.textContent = 'Chord Library';
+    dom.appTitle.textContent = playlist.name;
 
     dom.playlistTitle.textContent = playlist.name;
     dom.playlistDescription.textContent = playlist.description || '';
+    dom.playlistDescription.classList.toggle('hidden', !playlist.description);
 
     const playlistSongs = playlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter(Boolean);
 
+    dom.playlistSongCount.textContent = `${playlistSongs.length} ${playlistSongs.length === 1 ? 'song' : 'songs'}`;
+    dom.playlistUpdated.textContent = `Updated ${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}`;
+    dom.playlistReorderHint.classList.toggle('hidden', playlistSongs.length < 2);
+
     if (playlistSongs.length === 0) {
       dom.playlistSongs.innerHTML = `
-        <li style="padding: 16px; color: var(--text-muted); text-align: center;">
-          No songs in this playlist
+        <li class="playlist-empty-state">
+          ${getHomeItemIcon('song')}
+          <strong>This playlist is ready for songs</strong>
+          <span>Choose Add songs to start building your set.</span>
         </li>
       `;
       return;
@@ -712,12 +863,30 @@
 
     dom.playlistSongs.innerHTML = playlistSongs.map((song, index) => `
       <li class="playlist-song-item" data-id="${song.id}" data-index="${index}" style="animation-delay:${index * 40}ms">
-        <span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>
-        <div class="playlist-song-info">
-          <div class="playlist-song-title">${escapeHtml(song.title)}</div>
-          ${song.artist ? `<div class="playlist-song-artist">${escapeHtml(song.artist)}</div>` : ''}
-        </div>
-        <button class="btn-remove-song" data-id="${song.id}" title="Remove from playlist">✕</button>
+        <button class="drag-handle" type="button" aria-label="Drag ${escapeHtml(song.title)} to reorder" title="Drag to reorder">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="8" cy="7" r="1.5"></circle><circle cx="16" cy="7" r="1.5"></circle>
+            <circle cx="8" cy="12" r="1.5"></circle><circle cx="16" cy="12" r="1.5"></circle>
+            <circle cx="8" cy="17" r="1.5"></circle><circle cx="16" cy="17" r="1.5"></circle>
+          </svg>
+        </button>
+        <button class="playlist-song-open" type="button" aria-label="Open ${escapeHtml(song.title)}">
+          <span class="playlist-song-number" aria-hidden="true">${index + 1}</span>
+          <span class="playlist-song-info">
+            <strong class="playlist-song-title">${escapeHtml(song.title)}</strong>
+            ${song.artist ? `<span class="playlist-song-artist">${escapeHtml(song.artist)}</span>` : ''}
+          </span>
+          <svg class="playlist-song-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 18 6-6-6-6"></path>
+          </svg>
+        </button>
+        <button class="btn-remove-song" type="button" data-id="${escapeHtml(String(song.id))}"
+          aria-label="Remove ${escapeHtml(song.title)} from playlist" title="Remove from playlist">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"></path>
+            <path d="M10 11v5M14 11v5"></path>
+          </svg>
+        </button>
       </li>
     `).join('');
 
@@ -1184,6 +1353,9 @@
     closePlaylistModal();
     renderPlaylistList();
     renderPlaylistDetail();
+    $('btn-home').classList.remove('hidden');
+    $('btn-autoscroll').classList.add('hidden');
+    setSongActionsVisible(false);
   }
 
   function deletePlaylist(id) {
@@ -2414,11 +2586,14 @@
     // Tab switching
     $$('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        $$('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        $$('.sidebar-content').forEach(c => c.classList.remove('active'));
-        $(`${tab}-tab`).classList.add('active');
+        setSidebarTab(btn.dataset.tab);
+      });
+      btn.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const nextTab = btn.dataset.tab === 'songs' ? 'playlists' : 'songs';
+        setSidebarTab(nextTab);
+        document.querySelector(`.tab-btn[data-tab="${nextTab}"]`).focus();
       });
     });
     
@@ -2427,6 +2602,10 @@
     dom.searchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(renderSongList, 150);
+    });
+    dom.playlistSearchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(renderPlaylistList, 150);
     });
     
     // Sort selects
@@ -2517,6 +2696,10 @@
     
     // Add song button
     $('btn-add-song').addEventListener('click', () => openSongModal());
+    $('btn-add-song-sidebar').addEventListener('click', () => {
+      closeSidebar();
+      openSongModal();
+    });
 
     // Edit lyrics and chords directly in the song viewer.
     dom.inlineEditButton.addEventListener('click', startInlineEdit);
@@ -2682,7 +2865,10 @@
     });
     
     // Add playlist button
-    $('btn-add-playlist').addEventListener('click', () => openPlaylistModal());
+    $('btn-add-playlist').addEventListener('click', () => {
+      closeSidebar();
+      openPlaylistModal();
+    });
     
     // Edit playlist button
     $('btn-edit-playlist').addEventListener('click', () => {

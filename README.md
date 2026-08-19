@@ -12,10 +12,11 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Key & Capo Display**: Auto-detected key and capo position shown when transposing
 - **Two-Column View**: Display long chord sheets in two balanced columns with a persistent per-song setting
 - **Adjustable Font Size**: Resize chord sheets from 8px to 30px for different screens and viewing distances
-- **Playlists**: Create playlists to organize songs for performances
+- **Playlists**: Build performance setlists with a clear summary, guided empty state, and accessible song controls
 - **Playlist Reorder**: Drag-and-drop song ordering within playlists
 - **Playlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a playlist
-- **Home Dashboard**: Recently updated songs and playlists on the homepage
+- **Library Drawer**: Searchable song and playlist collections with counts, update context, and quick-create actions
+- **Home Dashboard**: A prominent “Jump back in” view with recent songs, playlists, update times, and quick access to full lists
 - **Preferences**: Theme (dark/light) and chord notation (original/sharp/flat) settings
 - **Smart QR Sharing**: Compressed QR codes that strip lyrics for easier scanning
 - **Firebase Sync**: Optional Google sign-in for cross-device sync via Firestore

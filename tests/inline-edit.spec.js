@@ -19,7 +19,7 @@ async function seedSong(page, overrides = {}) {
     localStorage.setItem('chord-library-songs', JSON.stringify([song]));
     localStorage.setItem('chord-library-playlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'preferences', 'key-capo', 'playlist-reorder', 'qr-sharing'
+      'two-column', 'preferences', 'key-capo', 'playlist-reorder', 'qr-sharing', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();
