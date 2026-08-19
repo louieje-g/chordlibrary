@@ -19,7 +19,7 @@ async function seedSong(page, overrides = {}) {
     localStorage.setItem('chord-library-songs', JSON.stringify([song]));
     localStorage.setItem('chord-library-playlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'preferences', 'playlist-reorder', 'qr-sharing', 'library-refresh'
+      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'qr-sharing', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();
@@ -90,6 +90,59 @@ test.describe('Inline song chord editing', () => {
 
     await expect(page.locator('#song-content')).toHaveText('C  G\nOriginal lyric');
     await expect(page.locator('#song-content')).toHaveAttribute('aria-label', 'Editing original lyrics and chords');
+  });
+
+  test('keeps equal sheet padding when two-column view is enabled', async ({ page }) => {
+    await seedSong(page, {
+      twoColumn: true,
+      content: '[Verse]\nC  G  Am  F\nLine one\nLine two\n\n[Chorus]\nF  G  C\nLine three'
+    });
+
+    const layout = await page.locator('#song-content').evaluate((content) => {
+      const contentStyle = getComputedStyle(content);
+      const editStyle = getComputedStyle(document.getElementById('btn-inline-edit'));
+      return {
+        columnCount: contentStyle.columnCount,
+        paddingLeft: contentStyle.paddingLeft,
+        paddingRight: contentStyle.paddingRight,
+        editPosition: editStyle.position,
+        editBottom: document.getElementById('btn-inline-edit').getBoundingClientRect().bottom,
+        contentTop: content.getBoundingClientRect().top
+      };
+    });
+
+    expect(layout.columnCount).toBe('2');
+    expect(layout.paddingLeft).toBe(layout.paddingRight);
+    expect(layout.editPosition).toBe('static');
+    expect(layout.editBottom).toBeLessThanOrEqual(layout.contentTop);
+  });
+
+  test('accepts the displayed transposition as the new base and supports undo', async ({ page }) => {
+    await seedSong(page, { transposeSteps: 2 });
+
+    await expect(page.locator('#btn-transpose-accept')).toBeVisible();
+    await expect(page.locator('#btn-transpose-accept svg')).toHaveCount(1);
+    await page.click('#btn-transpose-accept');
+
+    await expect(page.locator('#transpose-value')).toHaveText('0');
+    await expect(page.locator('#btn-transpose-accept')).toBeHidden();
+    await expect(page.locator('#song-content')).toContainText('D  A');
+    await expect(page.locator('#key-badge')).toHaveText('Key: D');
+
+    let storedSong = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('chord-library-songs'))[0]
+    );
+    expect(storedSong.content).toBe('D  A\nOriginal lyric');
+    expect(storedSong.transposeSteps).toBe(0);
+
+    await page.click('#btn-undo');
+    storedSong = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('chord-library-songs'))[0]
+    );
+    expect(storedSong.content).toBe('C  G\nOriginal lyric');
+    expect(storedSong.transposeSteps).toBe(2);
+    await expect(page.locator('#transpose-value')).toHaveText('2');
+    await expect(page.locator('#btn-transpose-accept')).toBeVisible();
   });
 
   test('cancel keeps the stored song unchanged', async ({ page }) => {

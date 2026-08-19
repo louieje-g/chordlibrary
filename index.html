@@ -15,7 +15,7 @@
   <link rel="icon" href="icons/favicon-32x32.png" type="image/png" sizes="32x32" />
   <link rel="icon" href="icons/favicon-16x16.png" type="image/png" sizes="16x16" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180" />
-  <link rel="stylesheet" href="css/style.css?v=1.0.6" />
+  <link rel="stylesheet" href="css/style.css?v=1.0.7" />
 </head>
 
 <body>
@@ -303,6 +303,12 @@
                   <path d="M3 3v5h5"></path>
                 </svg>
               </button>
+              <button class="btn-tool btn-transpose-accept hidden" id="btn-transpose-accept"
+                aria-label="Set transposed chords as the new base" title="Set current key as new base">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m5 12 4 4L19 6"></path>
+                </svg>
+              </button>
             </div>
             <div class="song-toolbar-right">
               <label class="column-toggle" title="Display this song in two columns">
@@ -381,9 +387,18 @@
             </div>
           </div>
 
-          <!-- Detected Key Info -->
-          <div class="song-key-info hidden" id="song-key-info">
-            <span class="key-badge" id="key-badge"></span>
+          <div class="song-content-meta">
+            <!-- Detected Key Info -->
+            <div class="song-key-info hidden" id="song-key-info">
+              <span class="key-badge" id="key-badge"></span>
+            </div>
+            <button class="btn-inline-edit" id="btn-inline-edit" type="button"
+              aria-label="Inline edit lyrics and chords" title="Inline edit lyrics and chords">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+              </svg>
+            </button>
           </div>
 
           <!-- Song Content -->
@@ -402,13 +417,6 @@
                 </svg>
               </button>
             </div>
-            <button class="btn-inline-edit" id="btn-inline-edit" type="button"
-              aria-label="Inline edit lyrics and chords" title="Inline edit lyrics and chords">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M12 20h9"></path>
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-              </svg>
-            </button>
             <pre class="contenteditable-highlight hidden" id="contenteditable-highlight" aria-hidden="true"></pre>
             <pre class="song-content" id="song-content"></pre>
             <div class="inline-song-editor hidden" id="inline-song-editor">
@@ -717,22 +725,27 @@
           <h3>Two-Column Song View</h3>
           <p>Use the 2 Col switch in the song toolbar to fit long chord sheets into two columns. Your choice is saved per song.</p>
         </div>
-        <div class="tour-slide" data-slide="1" data-feature="preferences" data-introduced="2.0">
+        <div class="tour-slide" data-slide="1" data-feature="accept-transposition" data-introduced="2.3">
+          <div class="tour-slide-icon">✓</div>
+          <h3>Keep a Transposed Key</h3>
+          <p>After transposing a song, use the check button beside reset to save those chords as the new base key.</p>
+        </div>
+        <div class="tour-slide" data-slide="2" data-feature="preferences" data-introduced="2.0">
           <div class="tour-slide-icon">⚙️</div>
           <h3>Preferences</h3>
           <p>Tap your profile icon to access Preferences — choose theme (dark/light) and chord notation (sharp # or flat b).</p>
         </div>
-        <div class="tour-slide" data-slide="2" data-feature="playlist-reorder" data-introduced="2.0">
+        <div class="tour-slide" data-slide="3" data-feature="playlist-reorder" data-introduced="2.0">
           <div class="tour-slide-icon">↕️</div>
           <h3>Playlist Reorder</h3>
           <p>Drag the ⋮⋮ handle on playlist songs to reorder them. Long-press the handle on mobile.</p>
         </div>
-        <div class="tour-slide" data-slide="3" data-feature="qr-sharing" data-introduced="2.0">
+        <div class="tour-slide" data-slide="4" data-feature="qr-sharing" data-introduced="2.0">
           <div class="tour-slide-icon">📱</div>
           <h3>Smarter QR Sharing</h3>
           <p>QR codes are now lighter — lyrics are stripped, keeping only chords and structure for easier scanning.</p>
         </div>
-        <div class="tour-slide" data-slide="4" data-feature="library-refresh" data-introduced="2.2">
+        <div class="tour-slide" data-slide="5" data-feature="library-refresh" data-introduced="2.2">
           <div class="tour-slide-icon">✨</div>
           <h3>Faster Library Navigation</h3>
           <p>Jump back into recent songs and playlists, search either collection, and manage clearer setlists from the refreshed dashboard and drawer.</p>
@@ -750,12 +763,12 @@
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script defer src="js/qrcode.js?v=1.0.6"></script>
+  <script defer src="js/qrcode.js?v=1.0.7"></script>
 
   <!-- App Scripts -->
-  <script defer src="js/firebase-config.js?v=1.0.6"></script>
-  <script defer src="js/sync-service.js?v=1.0.6"></script>
-  <script defer src="js/app.js?v=1.0.6"></script>
+  <script defer src="js/firebase-config.js?v=1.0.7"></script>
+  <script defer src="js/sync-service.js?v=1.0.7"></script>
+  <script defer src="js/app.js?v=1.0.7"></script>
 
   <!-- Service Worker registration for offline support -->
   <script>

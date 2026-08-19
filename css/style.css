@@ -1381,7 +1381,8 @@ body:has(.sidebar.open) .fab {
   transform: scale(0.95);
 }
 
-.btn-tool.btn-transpose-reset svg {
+.btn-tool.btn-transpose-reset svg,
+.btn-tool.btn-transpose-accept svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -1389,6 +1390,16 @@ body:has(.sidebar.open) .fab {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.btn-tool.btn-transpose-accept {
+  color: var(--success);
+}
+
+.btn-tool.btn-transpose-accept:hover,
+.btn-tool.btn-transpose-accept:focus-visible {
+  background: rgba(81, 207, 102, 0.16);
+  color: var(--success);
 }
 
 .btn-tool.btn-danger:hover {
@@ -1515,12 +1526,20 @@ body:has(.sidebar.open) .fab {
 }
 
 /* Detected Key Info */
+.song-content-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  min-height: 32px;
+  padding: 0 var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
 .song-key-info {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: 0 var(--spacing-sm);
-  margin-bottom: var(--spacing-xs);
   font-size: 0.7rem;
   color: var(--text-muted);
 }
@@ -1645,15 +1664,13 @@ body:has(.sidebar.open) .fab {
 }
 
 .btn-inline-edit {
-  position: absolute;
-  z-index: 2;
-  top: var(--spacing-sm);
-  right: var(--spacing-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid var(--border-color);
   border-radius: 50%;
@@ -1682,13 +1699,21 @@ body:has(.sidebar.open) .fab {
 
 .btn-inline-edit svg,
 .inline-editor-action svg {
-  width: 18px;
-  height: 18px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.btn-inline-edit svg {
+  width: 16px;
+  height: 16px;
+}
+
+.inline-editor-action svg {
+  width: 18px;
+  height: 18px;
 }
 
 .song-content {
@@ -1697,7 +1722,7 @@ body:has(.sidebar.open) .fab {
   line-height: 1.6;
   white-space: pre;
   word-wrap: break-word;
-  padding: var(--spacing-sm) calc(var(--spacing-xl) + 28px) var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-secondary);
   border-radius: 8px;
   overflow-x: hidden;
@@ -3136,7 +3161,7 @@ body:has(.sidebar.open) .fab {
 
   .song-content {
     font-size: var(--font-size-lg);
-    padding: var(--spacing-md) calc(var(--spacing-xl) + 28px) var(--spacing-md) var(--spacing-md);
+    padding: var(--spacing-md);
   }
 
   .contenteditable-highlight {
@@ -3154,7 +3179,7 @@ body:has(.sidebar.open) .fab {
   }
 
   .song-content {
-    padding: var(--spacing-lg) calc(var(--spacing-xl) + 28px) var(--spacing-lg) var(--spacing-lg);
+    padding: var(--spacing-lg);
   }
 
   .contenteditable-highlight {

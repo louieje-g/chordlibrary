@@ -10,7 +10,7 @@
   // Constants & Helpers
   // ================================================
   
-  const TOUR_VERSION = '2.2';
+  const TOUR_VERSION = '2.3';
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 30;
   // Rollback switch: set to 'legacy' to restore the full textarea editor.
@@ -135,6 +135,7 @@
     transposeUp: $('btn-transpose-up'),
     transposeDown: $('btn-transpose-down'),
     transposeReset: $('btn-transpose-reset'),
+    transposeAccept: $('btn-transpose-accept'),
     transposeValue: $('transpose-value'),
     twoColumnToggle: $('two-column-toggle'),
     songActionsButton: $('btn-song-actions'),
@@ -726,6 +727,7 @@
     dom.transposeValue.className = 'transpose-value';
     if (transposeSteps > 0) dom.transposeValue.classList.add('positive');
     else if (transposeSteps < 0) dom.transposeValue.classList.add('negative');
+    dom.transposeAccept.classList.toggle('hidden', transposeSteps === 0);
 
     // Detected key info
     const keyInfo = $('song-key-info');
@@ -2270,6 +2272,44 @@
   }
 
   /**
+   * Replace the song's source chords with the currently displayed transposition.
+   */
+  function acceptTranspositionAsBase() {
+    if (!selectedSongId || transposeSteps === 0) return;
+    const song = songs.find(s => s.id === selectedSongId);
+    if (!song) return;
+
+    const previous = {
+      content: song.content,
+      transposeSteps: song.transposeSteps || 0,
+      updatedAt: song.updatedAt
+    };
+    const acceptedSteps = transposeSteps;
+
+    song.content = transposeText(song.content, acceptedSteps);
+    song.transposeSteps = 0;
+    song.updatedAt = Date.now();
+    transposeSteps = 0;
+    saveSongs();
+    renderSongList();
+    renderSongDetail();
+    dom.transposeReset.focus();
+    announce('Transposed chords set as the new base');
+
+    showUndoToast('Transposed chords saved as new base', () => {
+      const savedSong = songs.find(s => s.id === song.id);
+      if (!savedSong) return;
+      savedSong.content = previous.content;
+      savedSong.transposeSteps = previous.transposeSteps;
+      savedSong.updatedAt = previous.updatedAt;
+      if (selectedSongId === savedSong.id) transposeSteps = previous.transposeSteps;
+      saveSongs();
+      renderSongList();
+      renderSongDetail();
+    });
+  }
+
+  /**
    * Save the two-column display preference to the current song.
    */
   function saveTwoColumnForSong(enabled) {
@@ -2671,6 +2711,8 @@
       saveTransposeForSong();
       renderSongDetail();
     });
+
+    dom.transposeAccept.addEventListener('click', acceptTranspositionAsBase);
     
     // Add song button
     $('btn-add-song').addEventListener('click', () => openSongModal());

@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 
@@ -13,21 +13,21 @@ const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
-  './css/style.css?v=1.0.6',
+  './css/style.css?v=1.0.7',
   './js/app.js',
-  './js/app.js?v=1.0.6',
+  './js/app.js?v=1.0.7',
   './js/firebase-config.js',
-  './js/firebase-config.js?v=1.0.6',
+  './js/firebase-config.js?v=1.0.7',
   './js/sync-service.js',
-  './js/sync-service.js?v=1.0.6',
+  './js/sync-service.js?v=1.0.7',
   './js/qrcode.js',
-  './js/qrcode.js?v=1.0.6',
+  './js/qrcode.js?v=1.0.7',
   './icons/favicon.ico',
   './icons/favicon-16x16.png',
   './icons/favicon-32x32.png',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
+  './icons/icon-192-v2.png',
+  './icons/icon-512-v2.png',
 ];
 
 // Firebase CDN scripts – cached at runtime on first load.
