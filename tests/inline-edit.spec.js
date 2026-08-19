@@ -35,6 +35,7 @@ test.describe('Inline song chord editing', () => {
     await expect(page.locator('#inline-song-editor')).toBeVisible();
     await expect(page.locator('#song-content')).toBeHidden();
     await expect(page.locator('.inline-editor-header strong')).toHaveText('Editing chords');
+    expect(await page.locator('#inline-song-highlight .chord').allTextContents()).toEqual(['C', 'G']);
 
     const layout = await page.evaluate(() => {
       const section = document.getElementById('song-content-section');
@@ -52,7 +53,9 @@ test.describe('Inline song chord editing', () => {
     expect(layout.textareaHeight).toBeGreaterThan(300);
     expect(layout.editorZIndex).toBeGreaterThan(layout.fabZIndex);
 
-    await page.fill('#inline-song-content', 'D  A\nUpdated lyric');
+    await page.fill('#inline-song-content', '[Chorus]\nD  A\nUpdated lyric');
+    await expect(page.locator('#inline-song-highlight .bracket-command')).toHaveText('[Chorus]');
+    expect(await page.locator('#inline-song-highlight .chord').allTextContents()).toEqual(['D', 'A']);
     await page.click('#btn-save-inline-edit');
 
     await expect(page.locator('#inline-song-editor')).toBeHidden();
@@ -60,7 +63,7 @@ test.describe('Inline song chord editing', () => {
     const storedContent = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
     );
-    expect(storedContent).toBe('D  A\nUpdated lyric');
+    expect(storedContent).toBe('[Chorus]\nD  A\nUpdated lyric');
   });
 
   test('edits original chords when the viewer is transposed', async ({ page }) => {

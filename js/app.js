@@ -139,6 +139,7 @@
     songContentSection: $('song-content-section'),
     inlineEditButton: $('btn-inline-edit'),
     inlineSongEditor: $('inline-song-editor'),
+    inlineSongHighlight: $('inline-song-highlight'),
     inlineSongContent: $('inline-song-content'),
     inlineEditorNote: $('inline-editor-note'),
     
@@ -289,9 +290,9 @@
   /**
    * Highlight chords in text with HTML spans
    */
-  function highlightChords(text) {
+  function highlightChords(text, preserveNotation = false) {
     if (!text) return '';
-    const converted = applyNotationPreference(text);
+    const converted = preserveNotation ? text : applyNotationPreference(text);
     const escaped = converted
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -614,6 +615,8 @@
     dom.songContent.style.lineHeight = lineHeight + 'px';
     dom.inlineSongContent.style.fontSize = currentFontSize + 'px';
     dom.inlineSongContent.style.lineHeight = lineHeight + 'px';
+    dom.inlineSongHighlight.style.fontSize = currentFontSize + 'px';
+    dom.inlineSongHighlight.style.lineHeight = lineHeight + 'px';
 
     // Two-column layout is stored per song.
     const twoColumnEnabled = song.twoColumn === true;
@@ -2107,6 +2110,7 @@
     positionInlineEditor();
     inlineEditingSongId = song.id;
     dom.inlineSongContent.value = song.content || '';
+    renderInlineEditHighlight();
     renderSongDetail();
 
     requestAnimationFrame(() => {
@@ -2170,6 +2174,18 @@
     dom.songContentSection.style.removeProperty('--inline-editor-top');
     dom.songContentSection.style.removeProperty('--inline-editor-left');
     dom.songContentSection.style.removeProperty('--inline-editor-right');
+  }
+
+  function syncInlineEditHighlightScroll() {
+    dom.inlineSongHighlight.scrollTop = dom.inlineSongContent.scrollTop;
+    dom.inlineSongHighlight.scrollLeft = dom.inlineSongContent.scrollLeft;
+  }
+
+  function renderInlineEditHighlight() {
+    // Preserve the user's exact notation in edit mode so the highlighted
+    // layer stays character-for-character aligned with the textarea.
+    dom.inlineSongHighlight.innerHTML = highlightChords(dom.inlineSongContent.value, true);
+    syncInlineEditHighlightScroll();
   }
 
   function cancelInlineEdit() {
@@ -2371,6 +2387,8 @@
         cancelInlineEdit();
       }
     });
+    dom.inlineSongContent.addEventListener('input', renderInlineEditHighlight);
+    dom.inlineSongContent.addEventListener('scroll', syncInlineEditHighlightScroll);
     window.addEventListener('resize', () => {
       if (inlineEditingSongId) positionInlineEditor();
     });
