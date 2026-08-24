@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Cache Names ────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v20';
 const STATIC_CACHE = `chord-library-static-${CACHE_VERSION}`;
 const CDN_CACHE    = `chord-library-cdn-${CACHE_VERSION}`;
 

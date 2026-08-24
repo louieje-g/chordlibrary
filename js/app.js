@@ -11,8 +11,9 @@
   // ================================================
   
   const TOUR_VERSION = '2.4';
-  const MIN_FONT_SIZE = 8;
-  const MAX_FONT_SIZE = 30;
+  const MIN_FONT_SIZE = 10;
+  const MAX_FONT_SIZE = 24;
+  const SHEET_SCROLL_TOP_THRESHOLD = 20;
   // Rollback switch: set to 'legacy' to restore the full textarea editor.
   const INLINE_EDIT_IMPLEMENTATION = 'contenteditable';
 
@@ -147,6 +148,7 @@
     // Song Detail
     songContent: $('song-content'),
     songContentSection: $('song-content-section'),
+    sheetScrollTopButton: $('btn-sheet-scroll-top'),
     inlineEditButton: $('btn-inline-edit'),
     contentEditableActions: $('contenteditable-actions'),
     contentEditableCharButtons: $('contenteditable-char-buttons'),
@@ -168,6 +170,11 @@
     songModal: $('song-modal'),
     songForm: $('song-form'),
     songModalTitle: $('song-modal-title'),
+    songModalSubtitle: $('song-modal-subtitle'),
+    songImportPanel: $('song-import-panel'),
+    songContentField: $('song-content-field'),
+    editSongInfoNote: $('edit-song-info-note'),
+    saveSongLabel: $('btn-save-song-label'),
     songTitleInput: $('song-title-input'),
     songArtistInput: $('song-artist-input'),
     songContentInput: $('song-content-input'),
@@ -347,7 +354,8 @@
     btn.textContent = '⏸';
     const speed = AUTO_SCROLL_SPEEDS[autoScrollSpeed];
     autoScrollInterval = setInterval(() => {
-      dom.content.scrollTop += speed;
+      const scrollSurface = selectedSongId ? dom.songContentSection : dom.content;
+      scrollSurface.scrollTop += speed;
     }, 30);
   }
 
@@ -378,6 +386,23 @@
     }
     const labels = ['Slow', 'Medium', 'Fast'];
     showToast(`Scroll speed: ${labels[autoScrollSpeed]}`, 'success');
+  }
+
+  function updateSheetScrollTopButton() {
+    if (!dom.sheetScrollTopButton || !dom.songContentSection) return;
+    const shouldShow = Boolean(selectedSongId)
+      && !dom.songDetail.classList.contains('hidden')
+      && dom.songContentSection.scrollTop > SHEET_SCROLL_TOP_THRESHOLD;
+    dom.sheetScrollTopButton.classList.toggle('hidden', !shouldShow);
+  }
+
+  function scrollSongSheetToTop() {
+    if (!dom.songContentSection) return;
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth';
+    dom.songContentSection.scrollTo({ top: 0, behavior });
+    announce('Chord sheet scrolled to top');
   }
 
   // ================================================
@@ -1104,6 +1129,8 @@
     saveSidebarScroll();
     renderSongList();
     renderSongDetail();
+    dom.songContentSection.scrollTop = 0;
+    updateSheetScrollTopButton();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
     setSongActionsVisible(true);
@@ -1122,18 +1149,30 @@
     editingSongId = songId;
     stopQrScan();
     closeScannerOverlay();
-    
+
+    const isEditingInfo = Boolean(songId);
+    dom.songImportPanel.classList.toggle('hidden', isEditingInfo);
+    dom.songContentField.classList.toggle('hidden', isEditingInfo);
+    dom.editSongInfoNote.classList.toggle('hidden', !isEditingInfo);
+    dom.songContentInput.required = !isEditingInfo;
+    dom.songContentInput.disabled = isEditingInfo;
+    dom.songForm.classList.toggle('is-info-edit', isEditingInfo);
+
     if (songId) {
       const song = songs.find(s => s.id === songId);
       if (song) {
-        dom.songModalTitle.textContent = 'Edit Song';
-        dom.songTitleInput.value = song.title;
+        dom.songModalTitle.textContent = 'Edit song info';
+        dom.songModalSubtitle.textContent = 'Update how this song appears in your library.';
+        dom.saveSongLabel.textContent = 'Save info';
+        dom.songTitleInput.value = song.title.toUpperCase();
         dom.songArtistInput.value = song.artist || '';
         dom.songContentInput.value = song.content;
       }
     } else {
-      dom.songModalTitle.textContent = 'Add Song';
       dom.songForm.reset();
+      dom.songModalTitle.textContent = 'Add a song';
+      dom.songModalSubtitle.textContent = 'Create a clear, searchable chord sheet.';
+      dom.saveSongLabel.textContent = 'Add song';
     }
     
     openModalWithFocusTrap(dom.songModal);
@@ -1145,24 +1184,26 @@
     closeScannerOverlay();
     closeModalWithFocusTrap(dom.songModal);
     editingSongId = null;
+    dom.songContentInput.disabled = false;
+    dom.songContentInput.required = true;
+    dom.songForm.classList.remove('is-info-edit');
     dom.songForm.reset();
   }
 
   function saveSong(e) {
     e.preventDefault();
     
-    const title = dom.songTitleInput.value.trim();
+    const title = dom.songTitleInput.value.trim().toUpperCase();
     const artist = dom.songArtistInput.value.trim();
     const content = dom.songContentInput.value;
-    
-    if (!title || !content) return;
+
+    if (!title || (!editingSongId && !content)) return;
     
     if (editingSongId) {
       const song = songs.find(s => s.id === editingSongId);
       if (song) {
         song.title = title;
         song.artist = artist;
-        song.content = content;
         song.updatedAt = Date.now();
       }
     } else {
@@ -1467,6 +1508,8 @@
       // Load persistent transpose value for this song
       transposeSteps = typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
       renderSongDetail();
+      dom.songContentSection.scrollTop = 0;
+      updateSheetScrollTopButton();
     }
   }
 
@@ -1488,6 +1531,8 @@
       // Load persistent transpose value for this song
       transposeSteps = typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
       renderSongDetail();
+      dom.songContentSection.scrollTop = 0;
+      updateSheetScrollTopButton();
     }
   }
 
@@ -2396,6 +2441,12 @@
 
   function renderContentEditableHighlight() {
     dom.contentEditableHighlight.innerHTML = highlightChords(inlineEditDraft, true);
+    syncContentEditableHighlightScroll();
+  }
+
+  function syncContentEditableHighlightScroll() {
+    dom.contentEditableHighlight.scrollTop = dom.songContent.scrollTop;
+    dom.contentEditableHighlight.scrollLeft = dom.songContent.scrollLeft;
   }
 
   function insertPlainTextIntoContentEditable(text) {
@@ -2409,6 +2460,33 @@
     const textNode = document.createTextNode(text);
     range.insertNode(textNode);
     range.setStartAfter(textNode);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    dom.songContent.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function insertPairIntoContentEditable(pair) {
+    const open = pair.charAt(0);
+    const close = pair.charAt(pair.length - 1);
+    dom.songContent.focus();
+
+    const selection = window.getSelection();
+    if (!selection) return;
+    if (!selection.rangeCount || !dom.songContent.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      const endRange = document.createRange();
+      endRange.selectNodeContents(dom.songContent);
+      endRange.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(endRange);
+    }
+
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    range.deleteContents();
+    const textNode = document.createTextNode(open + selectedText + close);
+    range.insertNode(textNode);
+    range.setStart(textNode, open.length + selectedText.length);
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -2559,7 +2637,10 @@
   function setSongActionsVisible(visible) {
     if (!dom.songActionsButton) return;
     dom.songActionsButton.classList.toggle('hidden', !visible);
-    if (!visible) closeSongActionsMenu();
+    if (!visible) {
+      closeSongActionsMenu();
+      if (dom.sheetScrollTopButton) dom.sheetScrollTopButton.classList.add('hidden');
+    }
   }
 
   /**
@@ -2575,6 +2656,19 @@
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function insertPairAtCursor(textarea, pair) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    const open = pair.charAt(0);
+    const close = pair.charAt(pair.length - 1);
+    textarea.setRangeText(open + selectedText + close, start, end, 'end');
+    const caretPosition = start + open.length + selectedText.length;
+    textarea.selectionStart = textarea.selectionEnd = caretPosition;
+    textarea.focus();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   // ================================================
   // Event Listeners
   // ================================================
@@ -2582,6 +2676,8 @@
   function initEventListeners() {
     // Home FAB button
     $('btn-home').addEventListener('click', goHome);
+    dom.songContentSection.addEventListener('scroll', updateSheetScrollTopButton, { passive: true });
+    dom.sheetScrollTopButton.addEventListener('click', scrollSongSheetToTop);
 
     // Floating song actions menu
     if (dom.songActionsButton && dom.songActionsMenu) {
@@ -2735,6 +2831,7 @@
     $('btn-save-content-edit').addEventListener('click', saveContentEditableInlineEdit);
     $('btn-cancel-content-edit').addEventListener('click', cancelContentEditableInlineEdit);
     dom.songContent.addEventListener('input', updateContentEditableDraft);
+    dom.songContent.addEventListener('scroll', syncContentEditableHighlightScroll);
     dom.songContent.addEventListener('keydown', (e) => {
       if (inlineEditingMode !== 'contenteditable') return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -2834,7 +2931,16 @@
     
     // Song form
     dom.songForm.addEventListener('submit', saveSong);
+    dom.songTitleInput.addEventListener('input', (e) => {
+      const cursorStart = e.target.selectionStart;
+      const cursorEnd = e.target.selectionEnd;
+      e.target.value = e.target.value.toUpperCase();
+      if (cursorStart !== null && cursorEnd !== null) {
+        e.target.setSelectionRange(cursorStart, cursorEnd);
+      }
+    });
     $('btn-cancel-song').addEventListener('click', closeSongModal);
+    $('btn-close-song-modal').addEventListener('click', closeSongModal);
     // Note: Backdrop click intentionally not added to prevent accidental closure
 
     // Import single song in song modal
@@ -2888,22 +2994,33 @@
     // Character insert buttons
     $$('#song-modal .char-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const char = btn.dataset.char;
-        insertCharAtCursor(dom.songContentInput, char);
+        if (btn.dataset.pair) {
+          insertPairAtCursor(dom.songContentInput, btn.dataset.pair);
+        } else {
+          insertCharAtCursor(dom.songContentInput, btn.dataset.char);
+        }
       });
     });
 
-    $$('[data-inline-char]').forEach(btn => {
+    $$('[data-inline-char], [data-inline-pair]').forEach(btn => {
       btn.addEventListener('click', () => {
         if (inlineEditingMode !== 'contenteditable') return;
-        insertPlainTextIntoContentEditable(btn.dataset.inlineChar);
+        if (btn.dataset.inlinePair) {
+          insertPairIntoContentEditable(btn.dataset.inlinePair);
+        } else {
+          insertPlainTextIntoContentEditable(btn.dataset.inlineChar);
+        }
       });
     });
 
-    $$('[data-legacy-inline-char]').forEach(btn => {
+    $$('[data-legacy-inline-char], [data-legacy-inline-pair]').forEach(btn => {
       btn.addEventListener('click', () => {
         if (inlineEditingMode !== 'legacy') return;
-        insertCharAtCursor(dom.inlineSongContent, btn.dataset.legacyInlineChar);
+        if (btn.dataset.legacyInlinePair) {
+          insertPairAtCursor(dom.inlineSongContent, btn.dataset.legacyInlinePair);
+        } else {
+          insertCharAtCursor(dom.inlineSongContent, btn.dataset.legacyInlineChar);
+        }
       });
     });
     

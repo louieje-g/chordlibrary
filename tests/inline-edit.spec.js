@@ -100,19 +100,33 @@ test.describe('Inline song chord editing', () => {
     await page.click('#btn-inline-edit');
 
     const charButtons = page.locator('#contenteditable-char-buttons .char-btn');
-    await expect(charButtons).toHaveCount(5);
+    await expect(charButtons).toHaveCount(7);
     await expect(page.locator('#contenteditable-char-buttons')).toBeVisible();
 
     for (const char of ['b', '#', '/', '|', '-']) {
       await page.locator(`#contenteditable-char-buttons [data-inline-char="${char}"]`).click();
     }
 
-    await expect(page.locator('#song-content')).toHaveText('b#/|-C  G\nOriginal lyric');
+    await page.locator('#contenteditable-char-buttons [data-inline-pair="[]"]').click();
+    await page.locator('#contenteditable-char-buttons [data-inline-pair="()"]' ).click();
+    await expect(page.locator('#song-content')).toHaveText('b#/|-[()]C  G\nOriginal lyric');
+
+    const caretPosition = await page.evaluate(() => {
+      const content = document.getElementById('song-content');
+      const selection = window.getSelection();
+      const activeRange = selection.getRangeAt(0);
+      const precedingRange = document.createRange();
+      precedingRange.selectNodeContents(content);
+      precedingRange.setEnd(activeRange.startContainer, activeRange.startOffset);
+      return precedingRange.toString().length;
+    });
+    expect(caretPosition).toBe(7);
+
     await page.click('#btn-save-content-edit');
     const storedContent = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('chord-library-songs'))[0].content
     );
-    expect(storedContent).toBe('b#/|-C  G\nOriginal lyric');
+    expect(storedContent).toBe('b#/|-[()]C  G\nOriginal lyric');
   });
 
   test('cancels inline editing before opening Edit song info', async ({ page }) => {
