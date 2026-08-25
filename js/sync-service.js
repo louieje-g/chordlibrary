@@ -12,10 +12,15 @@ const SyncService = (function () {
 
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
-    PLAYLISTS: 'chord-library-playlists',
+    SETLISTS: 'chord-library-setlists',
     SYNC_QUEUE: 'chord-library-sync-queue',
     LAST_SYNCED: 'chord-library-last-synced'
   };
+
+  const LEGACY_STORAGE_KEYS = {
+    SETLISTS: 'chord-library-playlists'
+  };
+  const LEGACY_SETLIST_COLLECTION = 'playlists';
 
   const MAX_BATCH_SIZE = 499; // Firestore limit is 500 operations per batch
 
@@ -241,10 +246,13 @@ const SyncService = (function () {
 
     var userId = currentUser.uid;
 
-    // Sync songs first (playlists reference songIds)
+    // Sync songs first (setlists reference songIds)
     return syncCollection('songs', userId)
       .then(function () {
-        return syncCollection('playlists', userId);
+        return migrateLegacyRemoteSetlists(userId);
+      })
+      .then(function () {
+        return syncCollection('setlists', userId);
       })
       .then(function () {
         // Flush any queued offline changes
@@ -285,6 +293,37 @@ const SyncService = (function () {
         return batch.commit();
       });
     }, Promise.resolve());
+  }
+
+  /**
+   * Copy legacy cloud records into the renamed collection without deleting the
+   * source. Newer tombstones continue to win, so removed records stay removed.
+   */
+  function migrateLegacyRemoteSetlists(userId) {
+    var userRef = db.collection('users').doc(userId);
+    var legacyRef = userRef.collection(LEGACY_SETLIST_COLLECTION);
+    var setlistsRef = userRef.collection('setlists');
+
+    return Promise.all([legacyRef.get(), setlistsRef.get()]).then(function (snapshots) {
+      var mergedById = {};
+      var toMigrate = [];
+
+      snapshots[1].forEach(function (doc) {
+        mergedById[doc.id] = Object.assign({}, doc.data(), { id: doc.id });
+      });
+      snapshots[0].forEach(function (doc) {
+        var legacyItem = Object.assign({}, doc.data(), { id: doc.id });
+        var currentItem = mergedById[doc.id];
+        var legacyTime = legacyItem.updatedAt || legacyItem.createdAt || 0;
+        var currentTime = currentItem && (currentItem.updatedAt || currentItem.createdAt || 0);
+        if (!currentItem || legacyTime > currentTime) {
+          mergedById[doc.id] = legacyItem;
+          toMigrate.push(legacyItem);
+        }
+      });
+
+      return commitInBatches(setlistsRef, toMigrate);
+    });
   }
 
   function syncCollection(type, userId) {
@@ -384,6 +423,8 @@ const SyncService = (function () {
   function onDataChanged(type, data) {
     if (!currentUser || !db) return;
 
+    type = normalizeCollectionType(type);
+
     if (!navigator.onLine) {
       queueChange(type, data);
       return;
@@ -407,6 +448,8 @@ const SyncService = (function () {
 
   function onItemDeleted(type, item) {
     if (!currentUser || !db) return;
+
+    type = normalizeCollectionType(type);
 
     // Create tombstone
     var tombstone = Object.assign({}, item, {
@@ -442,7 +485,7 @@ const SyncService = (function () {
   function queueChange(type, data) {
     var queue = getQueue();
     queue.push({
-      type: type,
+      type: normalizeCollectionType(type),
       data: data,
       timestamp: Date.now()
     });
@@ -452,7 +495,17 @@ const SyncService = (function () {
   function getQueue() {
     try {
       var raw = localStorage.getItem(SYNC_QUEUE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      var queue = raw ? JSON.parse(raw) : [];
+      var changed = false;
+      queue.forEach(function (entry) {
+        var normalizedType = normalizeCollectionType(entry.type);
+        if (normalizedType !== entry.type) {
+          entry.type = normalizedType;
+          changed = true;
+        }
+      });
+      if (changed) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+      return queue;
     } catch (e) {
       return [];
     }
@@ -536,8 +589,16 @@ const SyncService = (function () {
 
   function getLocalData(type) {
     try {
-      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.PLAYLISTS;
+      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.SETLISTS;
       var raw = localStorage.getItem(key);
+      if (type === 'setlists' && raw === null) {
+        raw = localStorage.getItem(LEGACY_STORAGE_KEYS.SETLISTS);
+        if (raw !== null) {
+          JSON.parse(raw);
+          localStorage.setItem(STORAGE_KEYS.SETLISTS, raw);
+          localStorage.removeItem(LEGACY_STORAGE_KEYS.SETLISTS);
+        }
+      }
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
       return [];
@@ -546,7 +607,7 @@ const SyncService = (function () {
 
   function setLocalData(type, data) {
     try {
-      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.PLAYLISTS;
+      var key = type === 'songs' ? STORAGE_KEYS.SONGS : STORAGE_KEYS.SETLISTS;
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
       console.error('SyncService: Failed to write local data:', e);
@@ -557,6 +618,10 @@ const SyncService = (function () {
     if (remoteUpdateCallback) {
       remoteUpdateCallback(type, data);
     }
+  }
+
+  function normalizeCollectionType(type) {
+    return type === 'playlists' ? 'setlists' : type;
   }
 
   // ================================================

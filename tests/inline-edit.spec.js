@@ -17,9 +17,9 @@ async function seedSong(page, overrides = {}) {
       ...songOverrides
     };
     localStorage.setItem('chord-library-songs', JSON.stringify([song]));
-    localStorage.setItem('chord-library-playlists', '[]');
+    localStorage.setItem('chord-library-setlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'inline-edit-tools', 'library-refresh'
+      'two-column', 'accept-transposition', 'preferences', 'setlist-reorder', 'inline-edit-tools', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();
@@ -27,6 +27,59 @@ async function seedSong(page, overrides = {}) {
 }
 
 test.describe('Inline song chord editing', () => {
+  test('keeps styled lyrics and chords visible while editing in light mode', async ({ page }) => {
+    await seedSong(page, {
+      content: '[Chorus]\nC  G\nVisible lyric'
+    });
+    await page.evaluate(() => {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('chord-library-theme', 'light');
+    });
+    await page.click('#btn-inline-edit');
+
+    const appearance = await page.evaluate(() => {
+      const editor = document.getElementById('song-content');
+      const highlight = document.getElementById('contenteditable-highlight');
+      const chord = highlight.querySelector('.chord');
+      const editorStyle = getComputedStyle(editor);
+      const highlightStyle = getComputedStyle(highlight);
+      const chordStyle = getComputedStyle(chord);
+
+      const channelValues = color => (color.match(/[\d.]+/g) || []).map(Number);
+      const luminance = color => {
+        const [red, green, blue] = channelValues(color).slice(0, 3).map(value => {
+          const channel = value / 255;
+          return channel <= 0.04045
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+      };
+      const contrast = (foreground, background) => {
+        const lighter = Math.max(luminance(foreground), luminance(background));
+        const darker = Math.min(luminance(foreground), luminance(background));
+        return (lighter + 0.05) / (darker + 0.05);
+      };
+
+      return {
+        editorBackground: editorStyle.backgroundColor,
+        editorTextFill: editorStyle.webkitTextFillColor,
+        highlightText: highlight.textContent,
+        highlightVisibility: highlightStyle.visibility,
+        lyricContrast: contrast(highlightStyle.color, highlightStyle.backgroundColor),
+        chordContrast: contrast(chordStyle.color, highlightStyle.backgroundColor)
+      };
+    });
+
+    expect(appearance.editorBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(appearance.editorTextFill).toBe('rgba(0, 0, 0, 0)');
+    expect(appearance.highlightText).toContain('Visible lyric');
+    expect(appearance.highlightText).toContain('C  G');
+    expect(appearance.highlightVisibility).toBe('visible');
+    expect(appearance.lyricContrast).toBeGreaterThanOrEqual(4.5);
+    expect(appearance.chordContrast).toBeGreaterThanOrEqual(4.5);
+  });
+
   test('opens from an SVG pencil and saves content in place', async ({ page }) => {
     await seedSong(page);
 

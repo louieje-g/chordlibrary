@@ -1,6 +1,6 @@
 /**
  * Chord Library - A mobile-first offline chord library application
- * Features: Song management, Chord transposition, Playlists, Swipe navigation
+ * Features: Song management, Chord transposition, Setlists, Swipe navigation
  */
 
 (function() {
@@ -19,13 +19,19 @@
 
   const STORAGE_KEYS = {
     SONGS: 'chord-library-songs',
-    PLAYLISTS: 'chord-library-playlists',
+    SETLISTS: 'chord-library-setlists',
     FONT_SIZE: 'chord-library-font-size',
     THEME: 'chord-library-theme',
     SIDEBAR_SCROLL: 'chord-library-sidebar-scroll',
+    SIDEBAR_COLLAPSED: 'chord-library-sidebar-collapsed',
     NOTATION: 'chord-library-notation',
     TOUR_SEEN: 'chord-library-tour-seen',
     TOUR_FEATURES_SEEN: 'chord-library-tour-features-seen'
+  };
+
+  // Read once during upgrades, then remove after a successful local migration.
+  const LEGACY_STORAGE_KEYS = {
+    SETLISTS: 'chord-library-playlists'
   };
 
   // Musical notes for transposition
@@ -77,21 +83,21 @@
   // ================================================
   
   let songs = [];
-  let playlists = [];
+  let setlists = [];
   let selectedSongId = null;
-  let selectedPlaylistId = null;
-  let viewingPlaylistSongIndex = -1;
+  let selectedSetlistId = null;
+  let viewingSetlistSongIndex = -1;
   let transposeSteps = 0;
   let editingSongId = null;
   let inlineEditingSongId = null;
   let inlineEditingMode = null;
   let inlineEditDraft = '';
-  let editingPlaylistId = null;
+  let editingSetlistId = null;
   let confirmCallback = null;
   let currentFontSize = 14; // Default font size for chord content
-  let viewingFromPlaylistId = null; // Track which playlist we're viewing from (for auto-add)
+  let viewingFromSetlistId = null; // Track which setlist we're viewing from (for auto-add)
   let undoTimer = null;
-  let undoData = null; // { type, item, playlists?, songs? }
+  let undoData = null; // { type, item, setlists?, songs? }
   let qrScannerStream = null;
   let qrScannerActive = false;
   let qrScannerRafId = null;
@@ -100,6 +106,8 @@
   let notationPref = 'original'; // 'original', 'sharp', or 'flat'
   let autoScrollInterval = null;
   let autoScrollSpeed = 1; // 0=slow, 1=medium, 2=fast
+  let desktopSidebarCollapsed = false;
+  let persistentSidebarLayout = null;
   const AUTO_SCROLL_SPEEDS = [0.5, 1, 2]; // px per tick
 
   // ================================================
@@ -111,21 +119,21 @@
     sidebar: $('sidebar'),
     menuToggle: $('menu-toggle'),
     searchInput: $('search-input'),
-    playlistSearchInput: $('playlist-search-input'),
+    setlistSearchInput: $('setlist-search-input'),
     songList: $('song-list'),
-    playlistList: $('playlist-list'),
+    setlistList: $('setlist-list'),
     songListSummary: $('song-list-summary'),
-    playlistListSummary: $('playlist-list-summary'),
+    setlistListSummary: $('setlist-list-summary'),
     songsTabCount: $('songs-tab-count'),
-    playlistsTabCount: $('playlists-tab-count'),
+    setlistsTabCount: $('setlists-tab-count'),
     songsSort: $('songs-sort'),
-    playlistsSort: $('playlists-sort'),
+    setlistsSort: $('setlists-sort'),
     
     // Content
     content: $('content'),
     emptyState: $('empty-state'),
     songDetail: $('song-detail'),
-    playlistDetail: $('playlist-detail'),
+    setlistDetail: $('setlist-detail'),
     
     // Song Navigation Hint
     songNavHint: $('song-nav-hint'),
@@ -158,13 +166,13 @@
     inlineSongContent: $('inline-song-content'),
     inlineEditorNote: $('inline-editor-note'),
     
-    // Playlist Detail
-    playlistTitle: $('playlist-title'),
-    playlistDescription: $('playlist-description'),
-    playlistSongCount: $('playlist-song-count'),
-    playlistUpdated: $('playlist-updated'),
-    playlistReorderHint: $('playlist-reorder-hint'),
-    playlistSongs: $('playlist-songs'),
+    // Setlist Detail
+    setlistTitle: $('setlist-title'),
+    setlistDescription: $('setlist-description'),
+    setlistSongCount: $('setlist-song-count'),
+    setlistUpdated: $('setlist-updated'),
+    setlistReorderHint: $('setlist-reorder-hint'),
+    setlistSongs: $('setlist-songs'),
     
     // Modals
     songModal: $('song-modal'),
@@ -181,14 +189,18 @@
     shareQrModal: $('share-qr-modal'),
     shareQrCanvas: $('share-qr-canvas'),
     shareQrHelp: $('share-qr-help'),
+    shareQrSongName: $('share-qr-song-name'),
     scanQrOverlay: $('qr-scanner-overlay'),
     scanQrVideo: $('scan-qr-video'),
+    scanQrStatus: $('qr-scanner-status-text'),
     
-    playlistModal: $('playlist-modal'),
-    playlistForm: $('playlist-form'),
-    playlistModalTitle: $('playlist-modal-title'),
-    playlistNameInput: $('playlist-name-input'),
-    playlistDescriptionInput: $('playlist-description-input'),
+    setlistModal: $('setlist-modal'),
+    setlistForm: $('setlist-form'),
+    setlistModalTitle: $('setlist-modal-title'),
+    setlistModalSubtitle: $('setlist-modal-subtitle'),
+    setlistSaveLabel: $('btn-save-setlist-label'),
+    setlistNameInput: $('setlist-name-input'),
+    setlistDescriptionInput: $('setlist-description-input'),
     
     addSongsModal: $('add-songs-modal'),
     songSelector: $('song-selector'),
@@ -204,13 +216,22 @@
   function loadData() {
     try {
       const songsData = localStorage.getItem(STORAGE_KEYS.SONGS);
-      const playlistsData = localStorage.getItem(STORAGE_KEYS.PLAYLISTS);
+      let setlistsData = localStorage.getItem(STORAGE_KEYS.SETLISTS);
+      if (setlistsData === null) {
+        const legacySetlistsData = localStorage.getItem(LEGACY_STORAGE_KEYS.SETLISTS);
+        if (legacySetlistsData !== null) {
+          JSON.parse(legacySetlistsData);
+          localStorage.setItem(STORAGE_KEYS.SETLISTS, legacySetlistsData);
+          localStorage.removeItem(LEGACY_STORAGE_KEYS.SETLISTS);
+          setlistsData = legacySetlistsData;
+        }
+      }
       songs = songsData ? JSON.parse(songsData) : [];
-      playlists = playlistsData ? JSON.parse(playlistsData) : [];
+      setlists = setlistsData ? JSON.parse(setlistsData) : [];
     } catch (e) {
       console.error('Error loading data:', e);
       songs = [];
-      playlists = [];
+      setlists = [];
     }
   }
 
@@ -229,17 +250,17 @@
     }
   }
 
-  function savePlaylists() {
+  function saveSetlists() {
     try {
-      localStorage.setItem(STORAGE_KEYS.PLAYLISTS, JSON.stringify(playlists));
+      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(setlists));
       if (typeof SyncService !== 'undefined') {
-        SyncService.onDataChanged('playlists', playlists);
+        SyncService.onDataChanged('setlists', setlists);
       }
     } catch (e) {
       if (e.name === 'QuotaExceededError' || e.code === 22) {
         showToast('Storage full — unable to save. Delete some items to free space.', 'error');
       } else {
-        console.error('Error saving playlists:', e);
+        console.error('Error saving setlists:', e);
       }
     }
   }
@@ -411,6 +432,52 @@
   
   let sidebarOverlay = null;
 
+  function isPersistentSidebarLayout() {
+    return window.matchMedia('(min-width: 768px)').matches;
+  }
+
+  function updateSidebarToggleAccessibility() {
+    const isPersistent = isPersistentSidebarLayout();
+    const expanded = isPersistent
+      ? !desktopSidebarCollapsed
+      : dom.sidebar.classList.contains('open');
+    const action = expanded ? 'Hide library panel' : 'Show library panel';
+    dom.menuToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    dom.menuToggle.setAttribute('aria-label', action);
+    dom.menuToggle.title = action;
+  }
+
+  function setDesktopSidebarCollapsed(collapsed, persist = true) {
+    desktopSidebarCollapsed = Boolean(collapsed);
+    document.body.classList.toggle('sidebar-collapsed', desktopSidebarCollapsed);
+    if (persist) {
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, desktopSidebarCollapsed ? 'true' : 'false');
+    }
+    updateSidebarToggleAccessibility();
+  }
+
+  function syncSidebarLayout() {
+    const isPersistent = isPersistentSidebarLayout();
+    if (persistentSidebarLayout === isPersistent) {
+      updateSidebarToggleAccessibility();
+      return;
+    }
+    persistentSidebarLayout = isPersistent;
+
+    if (isPersistent) {
+      dom.sidebar.classList.remove('open');
+      dom.menuToggle.classList.remove('active');
+      if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
+      document.body.classList.toggle('sidebar-collapsed', desktopSidebarCollapsed);
+    } else {
+      document.body.classList.remove('sidebar-collapsed');
+      dom.sidebar.classList.remove('open');
+      dom.menuToggle.classList.remove('active');
+      if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
+    }
+    updateSidebarToggleAccessibility();
+  }
+
   function createSidebarOverlay() {
     if (!sidebarOverlay) {
       sidebarOverlay = document.createElement('div');
@@ -421,21 +488,33 @@
   }
 
   function openSidebar() {
+    if (isPersistentSidebarLayout()) {
+      setDesktopSidebarCollapsed(false);
+      return;
+    }
     createSidebarOverlay();
     dom.sidebar.classList.add('open');
     dom.menuToggle.classList.add('active');
     sidebarOverlay.classList.add('visible');
+    updateSidebarToggleAccessibility();
   }
 
   function closeSidebar() {
+    if (isPersistentSidebarLayout()) return;
     dom.sidebar.classList.remove('open');
     dom.menuToggle.classList.remove('active');
     if (sidebarOverlay) {
       sidebarOverlay.classList.remove('visible');
     }
+    updateSidebarToggleAccessibility();
   }
 
   function toggleSidebar() {
+    if (isPersistentSidebarLayout()) {
+      setDesktopSidebarCollapsed(!desktopSidebarCollapsed);
+      announce(desktopSidebarCollapsed ? 'Library panel hidden' : 'Library panel shown');
+      return;
+    }
     if (dom.sidebar.classList.contains('open')) {
       closeSidebar();
     } else {
@@ -444,7 +523,7 @@
   }
 
   function setSidebarTab(tab) {
-    if (tab !== 'songs' && tab !== 'playlists') return;
+    if (tab !== 'songs' && tab !== 'setlists') return;
     $$('.tab-btn').forEach(btn => {
       const isActive = btn.dataset.tab === tab;
       btn.classList.toggle('active', isActive);
@@ -536,46 +615,46 @@
     `).join('');
   }
 
-  function renderPlaylistList() {
-    const query = dom.playlistSearchInput.value.trim().toLowerCase();
-    const sortOption = dom.playlistsSort ? dom.playlistsSort.value : 'updated-desc';
-    dom.playlistsTabCount.textContent = playlists.length;
+  function renderSetlistList() {
+    const query = dom.setlistSearchInput.value.trim().toLowerCase();
+    const sortOption = dom.setlistsSort ? dom.setlistsSort.value : 'updated-desc';
+    dom.setlistsTabCount.textContent = setlists.length;
 
     let filtered = query
-      ? playlists.filter(playlist =>
-          playlist.name.toLowerCase().includes(query) ||
-          (playlist.description && playlist.description.toLowerCase().includes(query)))
-      : playlists;
+      ? setlists.filter(setlist =>
+          setlist.name.toLowerCase().includes(query) ||
+          (setlist.description && setlist.description.toLowerCase().includes(query)))
+      : setlists;
 
     filtered = sortItems(filtered, sortOption, 'name');
-    dom.playlistListSummary.textContent = query
+    dom.setlistListSummary.textContent = query
       ? `${filtered.length} ${filtered.length === 1 ? 'result' : 'results'}`
-      : `${playlists.length} ${playlists.length === 1 ? 'playlist' : 'playlists'}`;
+      : `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`;
     
     if (filtered.length === 0) {
-      dom.playlistList.innerHTML = `
+      dom.setlistList.innerHTML = `
         <li class="drawer-empty-state">
-          ${getHomeItemIcon('playlist')}
-          <strong>${query ? 'No matching playlists' : 'No playlists yet'}</strong>
-          <span>${query ? 'Try a different playlist name or description.' : 'Use New to build your first setlist.'}</span>
+          ${getHomeItemIcon('setlist')}
+          <strong>${query ? 'No matching setlists' : 'No setlists yet'}</strong>
+          <span>${query ? 'Try a different setlist name or description.' : 'Use New to build your first setlist.'}</span>
         </li>
       `;
       return;
     }
 
-    dom.playlistList.innerHTML = filtered.map((playlist, i) => {
-      const isActive = playlist.id === selectedPlaylistId && viewingPlaylistSongIndex === -1;
+    dom.setlistList.innerHTML = filtered.map((setlist, i) => {
+      const isActive = setlist.id === selectedSetlistId && viewingSetlistSongIndex === -1;
       return `
       <li style="animation-delay:${Math.min(i * 30, 300)}ms">
-        <button class="playlist-item ${isActive ? 'active' : ''}" type="button" data-id="${escapeHtml(String(playlist.id))}"
+        <button class="setlist-item ${isActive ? 'active' : ''}" type="button" data-id="${escapeHtml(String(setlist.id))}"
           ${isActive ? 'aria-current="true"' : ''}>
-          <span class="drawer-item-icon" aria-hidden="true">${getHomeItemIcon('playlist')}</span>
+          <span class="drawer-item-icon" aria-hidden="true">${getHomeItemIcon('setlist')}</span>
           <span class="drawer-item-content">
-            <strong class="playlist-item-name">${escapeHtml(playlist.name)}</strong>
+            <strong class="setlist-item-name">${escapeHtml(setlist.name)}</strong>
             <span class="drawer-item-meta">
-              <span>${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'song' : 'songs'}</span>
+              <span>${setlist.songIds.length} ${setlist.songIds.length === 1 ? 'song' : 'songs'}</span>
               <span class="drawer-item-separator" aria-hidden="true">•</span>
-              <span class="drawer-item-updated">${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}</span>
+              <span class="drawer-item-updated">${formatRelativeUpdate(setlist.updatedAt || setlist.createdAt)}</span>
             </span>
           </span>
           <svg class="drawer-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -611,7 +690,7 @@
   }
 
   function getHomeItemIcon(type) {
-    if (type === 'playlist') {
+    if (type === 'setlist') {
       return `
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M5 7h9M5 12h9M5 17h6"></path>
@@ -635,9 +714,9 @@
     const dashboard = $('home-dashboard');
     const fallback = $('empty-state-fallback');
     const homeSongsList = $('home-songs-list');
-    const homePlaylistsList = $('home-playlists-list');
+    const homeSetlistsList = $('home-setlists-list');
 
-    if (songs.length === 0 && playlists.length === 0) {
+    if (songs.length === 0 && setlists.length === 0) {
       dashboard.classList.add('hidden');
       fallback.style.display = '';
       return;
@@ -647,10 +726,10 @@
     fallback.style.display = 'none';
 
     const recentSongs = [...songs].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3);
-    const recentPlaylists = [...playlists].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3);
+    const recentSetlists = [...setlists].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3);
 
     $('home-recent-songs').style.display = recentSongs.length ? '' : 'none';
-    $('home-recent-playlists').style.display = recentPlaylists.length ? '' : 'none';
+    $('home-recent-setlists').style.display = recentSetlists.length ? '' : 'none';
 
     homeSongsList.innerHTML = recentSongs.map((song, i) => `
       <li style="--home-item-delay:${i * 50}ms">
@@ -670,16 +749,16 @@
       </li>
     `).join('');
 
-    homePlaylistsList.innerHTML = recentPlaylists.map((playlist, i) => `
+    homeSetlistsList.innerHTML = recentSetlists.map((setlist, i) => `
       <li style="--home-item-delay:${i * 50}ms">
-        <button class="home-recent-item" type="button" data-home-type="playlist" data-id="${escapeHtml(String(playlist.id))}">
-          <span class="home-item-icon" aria-hidden="true">${getHomeItemIcon('playlist')}</span>
+        <button class="home-recent-item" type="button" data-home-type="setlist" data-id="${escapeHtml(String(setlist.id))}">
+          <span class="home-item-icon" aria-hidden="true">${getHomeItemIcon('setlist')}</span>
           <span class="home-item-content">
-            <strong class="home-item-title">${escapeHtml(playlist.name)}</strong>
+            <strong class="home-item-title">${escapeHtml(setlist.name)}</strong>
             <span class="home-item-meta">
-              <span>${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'song' : 'songs'}</span>
+              <span>${setlist.songIds.length} ${setlist.songIds.length === 1 ? 'song' : 'songs'}</span>
               <span class="home-item-separator" aria-hidden="true">•</span>
-              <span class="home-item-updated">Updated ${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}</span>
+              <span class="home-item-updated">Updated ${formatRelativeUpdate(setlist.updatedAt || setlist.createdAt)}</span>
             </span>
           </span>
           <svg class="home-item-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -698,8 +777,8 @@
 
       const item = e.target.closest('.home-recent-item');
       if (!item) return;
-      if (item.dataset.homeType === 'playlist') {
-        selectPlaylist(item.dataset.id);
+      if (item.dataset.homeType === 'setlist') {
+        selectSetlist(item.dataset.id);
       } else {
         selectSong(item.dataset.id);
       }
@@ -715,7 +794,7 @@
       clearInlineEditorPosition();
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
-      dom.playlistDetail.classList.add('hidden');
+      dom.setlistDetail.classList.add('hidden');
       dom.appTitle.textContent = 'Chord Library';
       stopAutoScroll();
       setSongActionsVisible(false);
@@ -725,7 +804,7 @@
 
     dom.emptyState.classList.add('hidden');
     dom.songDetail.classList.remove('hidden');
-    dom.playlistDetail.classList.add('hidden');
+    dom.setlistDetail.classList.add('hidden');
 
     // Move song title into header bar for compact view
     const transposedTitle = transposeSteps !== 0 
@@ -735,14 +814,14 @@
     dom.appTitle.textContent = transposedTitle + artistSuffix;
     dom.appTitle.title = transposedTitle + artistSuffix;
 
-    // Show/hide back-to-playlist button
-    const backBtn = document.getElementById('btn-back-playlist');
-    const backLabel = document.getElementById('btn-back-playlist-label');
-    if (selectedPlaylistId && viewingPlaylistSongIndex >= 0) {
-      const playlist = playlists.find(p => p.id === selectedPlaylistId);
+    // Show/hide back-to-setlist button
+    const backBtn = document.getElementById('btn-back-setlist');
+    const backLabel = document.getElementById('btn-back-setlist-label');
+    if (selectedSetlistId && viewingSetlistSongIndex >= 0) {
+      const setlist = setlists.find(p => p.id === selectedSetlistId);
       if (backBtn) {
         backBtn.classList.remove('hidden');
-        if (backLabel) backLabel.textContent = playlist ? playlist.name : 'Playlist';
+        if (backLabel) backLabel.textContent = setlist ? setlist.name : 'Setlist';
       }
     } else {
       if (backBtn) backBtn.classList.add('hidden');
@@ -823,16 +902,16 @@
       dom.songContent.removeAttribute('spellcheck');
     }
 
-    // Update navigation hint if viewing from playlist
+    // Update navigation hint if viewing from setlist
     updateSongNavigation();
   }
 
-  function renderPlaylistDetail() {
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) {
+  function renderSetlistDetail() {
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) {
       dom.emptyState.classList.remove('hidden');
       dom.songDetail.classList.add('hidden');
-      dom.playlistDetail.classList.add('hidden');
+      dom.setlistDetail.classList.add('hidden');
       // Reset header title
       dom.appTitle.textContent = 'Chord Library';
       renderHomeDashboard();
@@ -841,35 +920,35 @@
 
     dom.emptyState.classList.add('hidden');
     dom.songDetail.classList.add('hidden');
-    dom.playlistDetail.classList.remove('hidden');
+    dom.setlistDetail.classList.remove('hidden');
 
-    dom.appTitle.textContent = playlist.name;
+    dom.appTitle.textContent = 'Chord Library';
 
-    dom.playlistTitle.textContent = playlist.name;
-    dom.playlistDescription.textContent = playlist.description || '';
-    dom.playlistDescription.classList.toggle('hidden', !playlist.description);
+    dom.setlistTitle.textContent = setlist.name;
+    dom.setlistDescription.textContent = setlist.description || '';
+    dom.setlistDescription.classList.toggle('hidden', !setlist.description);
 
-    const playlistSongs = playlist.songIds
+    const setlistSongs = setlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter(Boolean);
 
-    dom.playlistSongCount.textContent = `${playlistSongs.length} ${playlistSongs.length === 1 ? 'song' : 'songs'}`;
-    dom.playlistUpdated.textContent = `Updated ${formatRelativeUpdate(playlist.updatedAt || playlist.createdAt)}`;
-    dom.playlistReorderHint.classList.toggle('hidden', playlistSongs.length < 2);
+    dom.setlistSongCount.textContent = `${setlistSongs.length} ${setlistSongs.length === 1 ? 'song' : 'songs'}`;
+    dom.setlistUpdated.textContent = `Updated ${formatRelativeUpdate(setlist.updatedAt || setlist.createdAt)}`;
+    dom.setlistReorderHint.classList.toggle('hidden', setlistSongs.length < 2);
 
-    if (playlistSongs.length === 0) {
-      dom.playlistSongs.innerHTML = `
-        <li class="playlist-empty-state">
+    if (setlistSongs.length === 0) {
+      dom.setlistSongs.innerHTML = `
+        <li class="setlist-empty-state">
           ${getHomeItemIcon('song')}
-          <strong>This playlist is ready for songs</strong>
+          <strong>This setlist is ready for songs</strong>
           <span>Choose Add songs to start building your set.</span>
         </li>
       `;
       return;
     }
 
-    dom.playlistSongs.innerHTML = playlistSongs.map((song, index) => `
-      <li class="playlist-song-item" data-id="${song.id}" data-index="${index}" style="animation-delay:${index * 40}ms">
+    dom.setlistSongs.innerHTML = setlistSongs.map((song, index) => `
+      <li class="setlist-song-item" data-id="${song.id}" data-index="${index}" style="animation-delay:${index * 40}ms">
         <button class="drag-handle" type="button" aria-label="Drag ${escapeHtml(song.title)} to reorder" title="Drag to reorder">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <circle cx="8" cy="7" r="1.5"></circle><circle cx="16" cy="7" r="1.5"></circle>
@@ -877,18 +956,18 @@
             <circle cx="8" cy="17" r="1.5"></circle><circle cx="16" cy="17" r="1.5"></circle>
           </svg>
         </button>
-        <button class="playlist-song-open" type="button" aria-label="Open ${escapeHtml(song.title)}">
-          <span class="playlist-song-number" aria-hidden="true">${index + 1}</span>
-          <span class="playlist-song-info">
-            <strong class="playlist-song-title">${escapeHtml(song.title)}</strong>
-            ${song.artist ? `<span class="playlist-song-artist">${escapeHtml(song.artist)}</span>` : ''}
+        <button class="setlist-song-open" type="button" aria-label="Open ${escapeHtml(song.title)}">
+          <span class="setlist-song-number" aria-hidden="true">${index + 1}</span>
+          <span class="setlist-song-info">
+            <strong class="setlist-song-title">${escapeHtml(song.title)}</strong>
+            ${song.artist ? `<span class="setlist-song-artist">${escapeHtml(song.artist)}</span>` : ''}
           </span>
-          <svg class="playlist-song-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <svg class="setlist-song-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m9 18 6-6-6-6"></path>
           </svg>
         </button>
         <button class="btn-remove-song" type="button" data-id="${escapeHtml(String(song.id))}"
-          aria-label="Remove ${escapeHtml(song.title)} from playlist" title="Remove from playlist">
+          aria-label="Remove ${escapeHtml(song.title)} from setlist" title="Remove from setlist">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"></path>
             <path d="M10 11v5M14 11v5"></path>
@@ -897,11 +976,11 @@
       </li>
     `).join('');
 
-    setupPlaylistDragDrop();
+    setupSetlistDragDrop();
   }
 
-  function setupPlaylistDragDrop() {
-    const list = dom.playlistSongs;
+  function setupSetlistDragDrop() {
+    const list = dom.setlistSongs;
 
     if (list._dragDropInitialized) return;
     list._dragDropInitialized = true;
@@ -916,13 +995,13 @@
     const MOVE_THRESHOLD = 5;
 
     function getItems() {
-      return Array.from(list.querySelectorAll('.playlist-song-item'));
+      return Array.from(list.querySelectorAll('.setlist-song-item'));
     }
 
     function createGhost(item, x, y) {
       ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
-      ghost.textContent = item.querySelector('.playlist-song-title').textContent;
+      ghost.textContent = item.querySelector('.setlist-song-title').textContent;
       document.body.appendChild(ghost);
       moveGhost(x, y);
     }
@@ -948,7 +1027,7 @@
       if (ghost) ghost.style.display = 'none';
       const elem = document.elementFromPoint(x, y);
       if (ghost) ghost.style.display = '';
-      return elem ? elem.closest('.playlist-song-item') : null;
+      return elem ? elem.closest('.setlist-song-item') : null;
     }
 
     function showIndicator(target, y) {
@@ -971,7 +1050,7 @@
         let targetIndex = parseInt(target.dataset.index, 10);
         const rect = target.getBoundingClientRect();
         if (y >= rect.top + rect.height / 2) targetIndex++;
-        reorderPlaylistSong(dragIndex, targetIndex);
+        reorderSetlistSong(dragIndex, targetIndex);
       }
 
       if (dragItem) dragItem.classList.remove('dragging');
@@ -994,7 +1073,7 @@
     list.addEventListener('pointerdown', (e) => {
       const handle = e.target.closest('.drag-handle');
       if (!handle) return;
-      const item = handle.closest('.playlist-song-item');
+      const item = handle.closest('.setlist-song-item');
       if (!item) return;
 
       e.preventDefault();
@@ -1048,67 +1127,67 @@
   function goHome() {
     if (!requestDiscardInlineEdit()) return;
     selectedSongId = null;
-    selectedPlaylistId = null;
-    viewingPlaylistSongIndex = -1;
-    viewingFromPlaylistId = null;
+    selectedSetlistId = null;
+    viewingSetlistSongIndex = -1;
+    viewingFromSetlistId = null;
     transposeSteps = 0;
     stopAutoScroll();
 
     dom.emptyState.classList.remove('hidden');
     dom.songDetail.classList.add('hidden');
-    dom.playlistDetail.classList.add('hidden');
+    dom.setlistDetail.classList.add('hidden');
     dom.appTitle.textContent = 'Chord Library';
     $('btn-home').classList.add('hidden');
     $('btn-autoscroll').classList.add('hidden');
     setSongActionsVisible(false);
 
     renderSongList();
-    renderPlaylistList();
+    renderSetlistList();
     renderHomeDashboard();
   }
 
-  function reorderPlaylistSong(fromIndex, toIndex) {
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) return;
+  function reorderSetlistSong(fromIndex, toIndex) {
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) return;
 
     if (toIndex > fromIndex) toIndex--;
     if (fromIndex === toIndex) return;
 
-    const [moved] = playlist.songIds.splice(fromIndex, 1);
-    playlist.songIds.splice(toIndex, 0, moved);
-    playlist.updatedAt = Date.now();
+    const [moved] = setlist.songIds.splice(fromIndex, 1);
+    setlist.songIds.splice(toIndex, 0, moved);
+    setlist.updatedAt = Date.now();
 
-    savePlaylists();
-    renderPlaylistDetail();
-    renderPlaylistList();
+    saveSetlists();
+    renderSetlistDetail();
+    renderSetlistList();
   }
 
   function updateSongNavigation() {
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
     
-    if (!playlist || viewingPlaylistSongIndex < 0) {
+    if (!setlist || viewingSetlistSongIndex < 0) {
       dom.songNavHint.classList.add('hidden');
       return;
     }
 
-    const playlistSongs = playlist.songIds
+    const setlistSongs = setlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter(Boolean);
 
-    if (playlistSongs.length <= 1) {
+    if (setlistSongs.length <= 1) {
       dom.songNavHint.classList.add('hidden');
       return;
     }
 
     dom.songNavHint.classList.remove('hidden');
-    dom.navHintInfo.textContent = `${viewingPlaylistSongIndex + 1} / ${playlistSongs.length}`;
+    dom.navHintInfo.textContent = `${viewingSetlistSongIndex + 1} / ${setlistSongs.length}`;
   }
 
   // ================================================
   // Song Actions
   // ================================================
   
-  function selectSong(id, fromPlaylist = false, index = -1) {
+  function selectSong(id, fromSetlist = false, index = -1) {
     if (id !== inlineEditingSongId && !requestDiscardInlineEdit()) return;
     selectedSongId = id;
     stopAutoScroll();
@@ -1117,13 +1196,13 @@
     const song = songs.find(s => s.id === id);
     transposeSteps = song && typeof song.transposeSteps === 'number' ? song.transposeSteps : 0;
     
-    if (fromPlaylist) {
-      viewingPlaylistSongIndex = index;
-      viewingFromPlaylistId = selectedPlaylistId;
+    if (fromSetlist) {
+      viewingSetlistSongIndex = index;
+      viewingFromSetlistId = selectedSetlistId;
     } else {
-      selectedPlaylistId = null;
-      viewingPlaylistSongIndex = -1;
-      viewingFromPlaylistId = null;
+      selectedSetlistId = null;
+      viewingSetlistSongIndex = -1;
+      viewingFromSetlistId = null;
     }
     
     saveSidebarScroll();
@@ -1221,20 +1300,20 @@
       selectedSongId = newSong.id;
       transposeSteps = 0; // Reset transpose for new song
       
-      // Auto-add new song to current playlist if viewing from playlist
-      if (viewingFromPlaylistId) {
-        const playlist = playlists.find(p => p.id === viewingFromPlaylistId);
-        if (playlist) {
-          playlist.songIds.push(newSong.id);
-          playlist.updatedAt = Date.now();
-          // Update the index to point to the new song (last in playlist)
-          viewingPlaylistSongIndex = playlist.songIds.length - 1;
-          savePlaylists();
-          renderPlaylistList();
+      // Auto-add new song to current setlist if viewing from setlist
+      if (viewingFromSetlistId) {
+        const setlist = setlists.find(p => p.id === viewingFromSetlistId);
+        if (setlist) {
+          setlist.songIds.push(newSong.id);
+          setlist.updatedAt = Date.now();
+          // Update the index to point to the new song (last in setlist)
+          viewingSetlistSongIndex = setlist.songIds.length - 1;
+          saveSetlists();
+          renderSetlistList();
         }
       } else {
-        // Not from playlist, reset the index
-        viewingPlaylistSongIndex = -1;
+        // Not from setlist, reset the index
+        viewingSetlistSongIndex = -1;
       }
     }
     
@@ -1253,42 +1332,42 @@
       () => {
         // Store undo data before deleting
         const removedSong = { ...song };
-        const playlistBackups = playlists.map(p => ({ id: p.id, songIds: [...p.songIds] }));
+        const setlistBackups = setlists.map(p => ({ id: p.id, songIds: [...p.songIds] }));
         
         songs = songs.filter(s => s.id !== id);
         
-        // Remove from all playlists
-        playlists.forEach(playlist => {
-          playlist.songIds = playlist.songIds.filter(songId => songId !== id);
+        // Remove from all setlists
+        setlists.forEach(setlist => {
+          setlist.songIds = setlist.songIds.filter(songId => songId !== id);
         });
         
         saveSongs();
-        savePlaylists();
+        saveSetlists();
         
         if (selectedSongId === id) {
           selectedSongId = null;
-          viewingPlaylistSongIndex = -1;
+          viewingSetlistSongIndex = -1;
         }
         
         renderSongList();
         renderSongDetail();
-        renderPlaylistList();
+        renderSetlistList();
         
         // Show undo toast
         showUndoToast(`"${removedSong.title}" deleted`, () => {
-          // Undo: restore song and playlist references
+          // Undo: restore song and setlist references
           songs.push(removedSong);
-          playlistBackups.forEach(backup => {
-            const playlist = playlists.find(p => p.id === backup.id);
-            if (playlist) playlist.songIds = backup.songIds;
+          setlistBackups.forEach(backup => {
+            const setlist = setlists.find(p => p.id === backup.id);
+            if (setlist) setlist.songIds = backup.songIds;
           });
           saveSongs();
-          savePlaylists();
+          saveSetlists();
           selectedSongId = removedSong.id;
           transposeSteps = removedSong.transposeSteps || 0;
           renderSongList();
           renderSongDetail();
-          renderPlaylistList();
+          renderSetlistList();
         });
 
         // Sync tombstone after undo window expires
@@ -1304,68 +1383,72 @@
   }
 
   // ================================================
-  // Playlist Actions
+  // Setlist Actions
   // ================================================
   
-  function selectPlaylist(id) {
+  function selectSetlist(id) {
     if (!requestDiscardInlineEdit()) return;
-    selectedPlaylistId = id;
+    selectedSetlistId = id;
     selectedSongId = null;
-    viewingPlaylistSongIndex = -1;
-    viewingFromPlaylistId = id; // Track for auto-add feature
+    viewingSetlistSongIndex = -1;
+    viewingFromSetlistId = id; // Track for auto-add feature
     transposeSteps = 0;
     stopAutoScroll();
     
-    renderPlaylistList();
-    renderPlaylistDetail();
+    renderSetlistList();
+    renderSetlistDetail();
     closeSidebar();
     $('btn-home').classList.remove('hidden');
     $('btn-autoscroll').classList.add('hidden');
     setSongActionsVisible(false);
   }
 
-  function openPlaylistModal(playlistId = null) {
-    editingPlaylistId = playlistId;
+  function openSetlistModal(setlistId = null) {
+    editingSetlistId = setlistId;
     
-    if (playlistId) {
-      const playlist = playlists.find(p => p.id === playlistId);
-      if (playlist) {
-        dom.playlistModalTitle.textContent = 'Edit Playlist';
-        dom.playlistNameInput.value = playlist.name;
-        dom.playlistDescriptionInput.value = playlist.description || '';
+    if (setlistId) {
+      const setlist = setlists.find(p => p.id === setlistId);
+      if (setlist) {
+        dom.setlistModalTitle.textContent = 'Edit setlist';
+        dom.setlistModalSubtitle.textContent = 'Update this setlist’s name or supporting details.';
+        dom.setlistSaveLabel.textContent = 'Save changes';
+        dom.setlistNameInput.value = setlist.name;
+        dom.setlistDescriptionInput.value = setlist.description || '';
       }
     } else {
-      dom.playlistModalTitle.textContent = 'Create Playlist';
-      dom.playlistForm.reset();
+      dom.setlistModalTitle.textContent = 'Create setlist';
+      dom.setlistModalSubtitle.textContent = 'Build a setlist for services, rehearsals, or events.';
+      dom.setlistSaveLabel.textContent = 'Create setlist';
+      dom.setlistForm.reset();
     }
     
-    openModalWithFocusTrap(dom.playlistModal);
-    setTimeout(() => dom.playlistNameInput.focus(), 100);
+    openModalWithFocusTrap(dom.setlistModal);
+    setTimeout(() => dom.setlistNameInput.focus(), 100);
   }
 
-  function closePlaylistModal() {
-    closeModalWithFocusTrap(dom.playlistModal);
-    editingPlaylistId = null;
-    dom.playlistForm.reset();
+  function closeSetlistModal() {
+    closeModalWithFocusTrap(dom.setlistModal);
+    editingSetlistId = null;
+    dom.setlistForm.reset();
   }
 
-  function savePlaylist(e) {
+  function saveSetlist(e) {
     e.preventDefault();
     
-    const name = dom.playlistNameInput.value.trim();
-    const description = dom.playlistDescriptionInput.value.trim();
+    const name = dom.setlistNameInput.value.trim();
+    const description = dom.setlistDescriptionInput.value.trim();
     
     if (!name) return;
     
-    if (editingPlaylistId) {
-      const playlist = playlists.find(p => p.id === editingPlaylistId);
-      if (playlist) {
-        playlist.name = name;
-        playlist.description = description;
-        playlist.updatedAt = Date.now();
+    if (editingSetlistId) {
+      const setlist = setlists.find(p => p.id === editingSetlistId);
+      if (setlist) {
+        setlist.name = name;
+        setlist.description = description;
+        setlist.updatedAt = Date.now();
       }
     } else {
-      const newPlaylist = {
+      const newSetlist = {
         id: generateId(),
         name,
         description,
@@ -1373,53 +1456,53 @@
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
-      playlists.push(newPlaylist);
-      selectedPlaylistId = newPlaylist.id;
+      setlists.push(newSetlist);
+      selectedSetlistId = newSetlist.id;
     }
     
-    savePlaylists();
-    closePlaylistModal();
-    renderPlaylistList();
-    renderPlaylistDetail();
+    saveSetlists();
+    closeSetlistModal();
+    renderSetlistList();
+    renderSetlistDetail();
     $('btn-home').classList.remove('hidden');
     $('btn-autoscroll').classList.add('hidden');
     setSongActionsVisible(false);
   }
 
-  function deletePlaylist(id) {
-    const playlist = playlists.find(p => p.id === id);
-    if (!playlist) return;
+  function deleteSetlist(id) {
+    const setlist = setlists.find(p => p.id === id);
+    if (!setlist) return;
     
     openConfirmModal(
-      `Are you sure you want to delete playlist "${playlist.name}"?`,
+      `Are you sure you want to delete setlist "${setlist.name}"?`,
       () => {
-        const removedPlaylist = { ...playlist, songIds: [...playlist.songIds] };
+        const removedSetlist = { ...setlist, songIds: [...setlist.songIds] };
         
-        playlists = playlists.filter(p => p.id !== id);
-        savePlaylists();
+        setlists = setlists.filter(p => p.id !== id);
+        saveSetlists();
         
-        if (selectedPlaylistId === id) {
-          selectedPlaylistId = null;
+        if (selectedSetlistId === id) {
+          selectedSetlistId = null;
         }
         
-        renderPlaylistList();
+        renderSetlistList();
         dom.emptyState.classList.remove('hidden');
-        dom.playlistDetail.classList.add('hidden');
+        dom.setlistDetail.classList.add('hidden');
         
         // Show undo toast
-        showUndoToast(`"${removedPlaylist.name}" deleted`, () => {
-          playlists.push(removedPlaylist);
-          savePlaylists();
-          selectedPlaylistId = removedPlaylist.id;
-          renderPlaylistList();
-          renderPlaylistDetail();
+        showUndoToast(`"${removedSetlist.name}" deleted`, () => {
+          setlists.push(removedSetlist);
+          saveSetlists();
+          selectedSetlistId = removedSetlist.id;
+          renderSetlistList();
+          renderSetlistDetail();
         });
 
         // Sync tombstone after undo window expires
         setTimeout(() => {
-          if (!playlists.find(p => p.id === id)) {
+          if (!setlists.find(p => p.id === id)) {
             if (typeof SyncService !== 'undefined') {
-              SyncService.onItemDeleted('playlists', removedPlaylist);
+              SyncService.onItemDeleted('setlists', removedSetlist);
             }
           }
         }, 6000);
@@ -1428,15 +1511,15 @@
   }
 
   function openAddSongsModal() {
-    if (!selectedPlaylistId) return;
+    if (!selectedSetlistId) return;
     
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) return;
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) return;
     
     const sortedSongs = [...songs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     dom.songSelector.innerHTML = sortedSongs.map(song => `
       <label class="song-selector-item">
-        <input type="checkbox" value="${song.id}" ${playlist.songIds.includes(song.id) ? 'checked' : ''}>
+        <input type="checkbox" value="${song.id}" ${setlist.songIds.includes(song.id) ? 'checked' : ''}>
         <div class="song-selector-info">
           <div class="song-selector-title">${escapeHtml(song.title)}</div>
           ${song.artist ? `<div class="song-selector-artist">${escapeHtml(song.artist)}</div>` : ''}
@@ -1452,10 +1535,10 @@
   }
 
   function confirmAddSongs() {
-    if (!selectedPlaylistId) return;
+    if (!selectedSetlistId) return;
     
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) return;
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) return;
     
     const checkboxes = dom.songSelector.querySelectorAll('input[type="checkbox"]');
     const selectedIds = Array.from(checkboxes)
@@ -1463,46 +1546,46 @@
       .map(cb => cb.value);
     
     // Preserve existing order (oldest first), append newly added at the end
-    const existing = playlist.songIds.filter(id => selectedIds.includes(id));
-    const added = selectedIds.filter(id => !playlist.songIds.includes(id));
-    playlist.songIds = [...existing, ...added];
-    playlist.updatedAt = Date.now();
+    const existing = setlist.songIds.filter(id => selectedIds.includes(id));
+    const added = selectedIds.filter(id => !setlist.songIds.includes(id));
+    setlist.songIds = [...existing, ...added];
+    setlist.updatedAt = Date.now();
     
-    savePlaylists();
+    saveSetlists();
     closeAddSongsModal();
-    renderPlaylistDetail();
-    renderPlaylistList();
+    renderSetlistDetail();
+    renderSetlistList();
   }
 
-  function removeSongFromPlaylist(songId) {
-    if (!selectedPlaylistId) return;
+  function removeSongFromSetlist(songId) {
+    if (!selectedSetlistId) return;
     
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) return;
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) return;
     
-    playlist.songIds = playlist.songIds.filter(id => id !== songId);
-    playlist.updatedAt = Date.now();
+    setlist.songIds = setlist.songIds.filter(id => id !== songId);
+    setlist.updatedAt = Date.now();
     
-    savePlaylists();
-    renderPlaylistDetail();
-    renderPlaylistList();
+    saveSetlists();
+    renderSetlistDetail();
+    renderSetlistList();
   }
 
   // ================================================
-  // Playlist Navigation
+  // Setlist Navigation
   // ================================================
   
   function navigateToPreviousSong() {
     if (inlineEditingSongId) return;
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist || viewingPlaylistSongIndex <= 0) return;
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist || viewingSetlistSongIndex <= 0) return;
     
-    const playlistSongs = playlist.songIds
+    const setlistSongs = setlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter(Boolean);
     
-    viewingPlaylistSongIndex--;
-    const song = playlistSongs[viewingPlaylistSongIndex];
+    viewingSetlistSongIndex--;
+    const song = setlistSongs[viewingSetlistSongIndex];
     if (song) {
       selectedSongId = song.id;
       // Load persistent transpose value for this song
@@ -1515,17 +1598,17 @@
 
   function navigateToNextSong() {
     if (inlineEditingSongId) return;
-    const playlist = playlists.find(p => p.id === selectedPlaylistId);
-    if (!playlist) return;
+    const setlist = setlists.find(p => p.id === selectedSetlistId);
+    if (!setlist) return;
     
-    const playlistSongs = playlist.songIds
+    const setlistSongs = setlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter(Boolean);
     
-    if (viewingPlaylistSongIndex >= playlistSongs.length - 1) return;
+    if (viewingSetlistSongIndex >= setlistSongs.length - 1) return;
     
-    viewingPlaylistSongIndex++;
-    const song = playlistSongs[viewingPlaylistSongIndex];
+    viewingSetlistSongIndex++;
+    const song = setlistSongs[viewingSetlistSongIndex];
     if (song) {
       selectedSongId = song.id;
       // Load persistent transpose value for this song
@@ -1561,8 +1644,8 @@
   }
 
   function handleTouchStart(e) {
-    // Only enable swipe when viewing a song from a playlist
-    if (viewingPlaylistSongIndex < 0 || inlineEditingSongId) return;
+    // Only enable swipe when viewing a song from a setlist
+    if (viewingSetlistSongIndex < 0 || inlineEditingSongId) return;
     
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
@@ -1570,7 +1653,7 @@
   }
 
   function handleTouchMove(e) {
-    if (!isSwiping || viewingPlaylistSongIndex < 0) return;
+    if (!isSwiping || viewingSetlistSongIndex < 0) return;
     
     const currentX = e.changedTouches[0].screenX;
     const currentY = e.changedTouches[0].screenY;
@@ -1579,15 +1662,15 @@
     
     // Only show indicators if horizontal swipe is significant
     if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
-      const playlist = playlists.find(p => p.id === selectedPlaylistId);
-      if (!playlist) return;
+      const setlist = setlists.find(p => p.id === selectedSetlistId);
+      if (!setlist) return;
       
-      const playlistSongs = playlist.songIds.filter(id => songs.find(s => s.id === id));
+      const setlistSongs = setlist.songIds.filter(id => songs.find(s => s.id === id));
       
-      if (diffX > 0 && viewingPlaylistSongIndex > 0) {
+      if (diffX > 0 && viewingSetlistSongIndex > 0) {
         swipeIndicatorLeft.classList.add('visible');
         swipeIndicatorRight.classList.remove('visible');
-      } else if (diffX < 0 && viewingPlaylistSongIndex < playlistSongs.length - 1) {
+      } else if (diffX < 0 && viewingSetlistSongIndex < setlistSongs.length - 1) {
         swipeIndicatorRight.classList.add('visible');
         swipeIndicatorLeft.classList.remove('visible');
       }
@@ -1595,7 +1678,7 @@
   }
 
   function handleTouchEnd(e) {
-    if (!isSwiping || viewingPlaylistSongIndex < 0) {
+    if (!isSwiping || viewingSetlistSongIndex < 0) {
       isSwiping = false;
       return;
     }
@@ -1716,10 +1799,10 @@
    */
   function exportData() {
     const data = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       songs: songs,
-      playlists: playlists
+      setlists: setlists
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1873,8 +1956,15 @@
         margin: 1,
         errorCorrectionLevel: 'L'
       });
+      if (dom.shareQrSongName) {
+        dom.shareQrSongName.textContent = song.artist
+          ? `${song.title} — ${song.artist}`
+          : song.title;
+      }
+      dom.shareQrCanvas.setAttribute('aria-label', `Generated QR code for ${song.title}`);
       if (dom.shareQrHelp) {
-        dom.shareQrHelp.textContent = 'Open Add Song and tap Scan QR on another device.';
+        const helpText = dom.shareQrHelp.querySelector('span');
+        if (helpText) helpText.textContent = 'On the other device, open Add Song and choose QR code.';
       }
       openModalWithFocusTrap(dom.shareQrModal);
     } catch (err) {
@@ -1972,12 +2062,18 @@
   }
 
   function openScannerOverlay() {
-    if (dom.scanQrOverlay) dom.scanQrOverlay.classList.remove('hidden');
+    if (!dom.scanQrOverlay) return;
+    dom.scanQrOverlay.classList.remove('hidden');
+    dom.scanQrOverlay.classList.remove('is-ready');
+    if (dom.scanQrStatus) dom.scanQrStatus.textContent = 'Requesting camera access…';
+    setTimeout(() => $('btn-close-scanner').focus(), 50);
   }
 
   function closeScannerOverlay() {
     stopQrScan();
     if (dom.scanQrOverlay) dom.scanQrOverlay.classList.add('hidden');
+    if (dom.scanQrStatus) dom.scanQrStatus.textContent = 'Camera ready';
+    if (dom.scanQrOverlay) dom.scanQrOverlay.classList.remove('is-ready');
   }
 
   async function scanQrFrameLoop() {
@@ -2025,6 +2121,7 @@
     }
 
     stopQrScan();
+    openScannerOverlay();
     try {
       qrScannerStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' } },
@@ -2034,11 +2131,13 @@
       dom.scanQrVideo.srcObject = qrScannerStream;
       await dom.scanQrVideo.play();
       qrScannerActive = true;
-      openScannerOverlay();
+      dom.scanQrOverlay.classList.add('is-ready');
+      if (dom.scanQrStatus) dom.scanQrStatus.textContent = 'Camera ready';
       qrScannerRafId = requestAnimationFrame(scanQrFrameLoop);
     } catch (err) {
       showToast('Unable to start camera scan.', 'error');
       stopQrScan();
+      closeScannerOverlay();
     }
   }
 
@@ -2122,7 +2221,7 @@
         }
         
         // Merge: add new items, update existing if newer
-        let addedSongs = 0, addedPlaylists = 0;
+        let addedSongs = 0, addedSetlists = 0;
         
         data.songs.forEach(imported => {
           const existing = songs.find(s => s.id === imported.id);
@@ -2135,24 +2234,28 @@
           }
         });
         
-        if (data.playlists && Array.isArray(data.playlists)) {
-          data.playlists.forEach(imported => {
-            const existing = playlists.find(p => p.id === imported.id);
+        // Continue accepting version 1 backups created before the terminology migration.
+        const importedSetlists = Array.isArray(data.setlists)
+          ? data.setlists
+          : (Array.isArray(data.playlists) ? data.playlists : []);
+        if (importedSetlists.length) {
+          importedSetlists.forEach(imported => {
+            const existing = setlists.find(p => p.id === imported.id);
             if (!existing) {
-              playlists.push(imported);
-              addedPlaylists++;
+              setlists.push(imported);
+              addedSetlists++;
             } else if (imported.updatedAt > (existing.updatedAt || 0)) {
               Object.assign(existing, imported);
-              addedPlaylists++;
+              addedSetlists++;
             }
           });
         }
         
         saveSongs();
-        savePlaylists();
+        saveSetlists();
         renderSongList();
-        renderPlaylistList();
-        showToast(`Imported ${addedSongs} songs, ${addedPlaylists} playlists`, 'success');
+        renderSetlistList();
+        showToast(`Imported ${addedSongs} songs, ${addedSetlists} setlists`, 'success');
       } catch (err) {
         showToast('Failed to parse file: ' + err.message, 'error');
       }
@@ -2222,6 +2325,11 @@
     $('pref-notation-original').classList.toggle('active', notationPref === 'original');
     $('pref-notation-sharp').classList.toggle('active', notationPref === 'sharp');
     $('pref-notation-flat').classList.toggle('active', notationPref === 'flat');
+    $('pref-theme-dark').setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+    $('pref-theme-light').setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    $('pref-notation-original').setAttribute('aria-pressed', notationPref === 'original' ? 'true' : 'false');
+    $('pref-notation-sharp').setAttribute('aria-pressed', notationPref === 'sharp' ? 'true' : 'false');
+    $('pref-notation-flat').setAttribute('aria-pressed', notationPref === 'flat' ? 'true' : 'false');
   }
 
   /**
@@ -2714,7 +2822,7 @@
       btn.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();
-        const nextTab = btn.dataset.tab === 'songs' ? 'playlists' : 'songs';
+        const nextTab = btn.dataset.tab === 'songs' ? 'setlists' : 'songs';
         setSidebarTab(nextTab);
         document.querySelector(`.tab-btn[data-tab="${nextTab}"]`).focus();
       });
@@ -2726,17 +2834,17 @@
       clearTimeout(searchTimer);
       searchTimer = setTimeout(renderSongList, 150);
     });
-    dom.playlistSearchInput.addEventListener('input', () => {
+    dom.setlistSearchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(renderPlaylistList, 150);
+      searchTimer = setTimeout(renderSetlistList, 150);
     });
     
     // Sort selects
     if (dom.songsSort) {
       dom.songsSort.addEventListener('change', renderSongList);
     }
-    if (dom.playlistsSort) {
-      dom.playlistsSort.addEventListener('change', renderPlaylistList);
+    if (dom.setlistsSort) {
+      dom.setlistsSort.addEventListener('change', renderSetlistList);
     }
     
     // Song list click
@@ -2747,21 +2855,21 @@
       }
     });
     
-    // Playlist list click
-    dom.playlistList.addEventListener('click', (e) => {
-      const item = e.target.closest('.playlist-item');
+    // Setlist list click
+    dom.setlistList.addEventListener('click', (e) => {
+      const item = e.target.closest('.setlist-item');
       if (item) {
-        selectPlaylist(item.dataset.id);
+        selectSetlist(item.dataset.id);
       }
     });
     
-    // Playlist songs click
-    dom.playlistSongs.addEventListener('click', (e) => {
+    // Setlist songs click
+    dom.setlistSongs.addEventListener('click', (e) => {
       // Handle remove button
       const removeBtn = e.target.closest('.btn-remove-song');
       if (removeBtn) {
         e.stopPropagation();
-        removeSongFromPlaylist(removeBtn.dataset.id);
+        removeSongFromSetlist(removeBtn.dataset.id);
         return;
       }
       
@@ -2769,7 +2877,7 @@
       if (e.target.closest('.drag-handle')) return;
 
       // Handle song click
-      const item = e.target.closest('.playlist-song-item');
+      const item = e.target.closest('.setlist-song-item');
       if (item) {
         const songId = item.dataset.id;
         const index = parseInt(item.dataset.index, 10);
@@ -2869,15 +2977,16 @@
     dom.inlineSongContent.addEventListener('scroll', syncInlineEditHighlightScroll);
     window.addEventListener('resize', () => {
       if (inlineEditingMode === 'legacy') positionInlineEditor();
+      syncSidebarLayout();
     });
 
-    // Back to playlist button
-    $('btn-back-playlist').addEventListener('click', () => {
-      if (selectedPlaylistId && requestDiscardInlineEdit()) {
-        viewingPlaylistSongIndex = -1;
+    // Back to setlist button
+    $('btn-back-setlist').addEventListener('click', () => {
+      if (selectedSetlistId && requestDiscardInlineEdit()) {
+        viewingSetlistSongIndex = -1;
         selectedSongId = null;
-        renderPlaylistDetail();
-        renderPlaylistList();
+        renderSetlistDetail();
+        renderSetlistList();
         dom.appTitle.textContent = 'Chord Library';
         setSongActionsVisible(false);
       }
@@ -2984,6 +3093,10 @@
     if (btnCloseShareQr) {
       btnCloseShareQr.addEventListener('click', closeShareQrModal);
     }
+    const btnCloseShareQrX = $('btn-close-share-qr-x');
+    if (btnCloseShareQrX) {
+      btnCloseShareQrX.addEventListener('click', closeShareQrModal);
+    }
     if (dom.shareQrModal) {
       const shareBackdrop = dom.shareQrModal.querySelector('.modal-backdrop');
       if (shareBackdrop) {
@@ -3024,29 +3137,30 @@
       });
     });
     
-    // Add playlist button
-    $('btn-add-playlist').addEventListener('click', () => {
+    // Add setlist button
+    $('btn-add-setlist').addEventListener('click', () => {
       closeSidebar();
-      openPlaylistModal();
+      openSetlistModal();
     });
     
-    // Edit playlist button
-    $('btn-edit-playlist').addEventListener('click', () => {
-      if (selectedPlaylistId) openPlaylistModal(selectedPlaylistId);
+    // Edit setlist button
+    $('btn-edit-setlist').addEventListener('click', () => {
+      if (selectedSetlistId) openSetlistModal(selectedSetlistId);
     });
     
-    // Delete playlist button
-    $('btn-delete-playlist').addEventListener('click', () => {
-      if (selectedPlaylistId) deletePlaylist(selectedPlaylistId);
+    // Delete setlist button
+    $('btn-delete-setlist').addEventListener('click', () => {
+      if (selectedSetlistId) deleteSetlist(selectedSetlistId);
     });
     
-    // Playlist form
-    dom.playlistForm.addEventListener('submit', savePlaylist);
-    $('btn-cancel-playlist').addEventListener('click', closePlaylistModal);
-    dom.playlistModal.querySelector('.modal-backdrop').addEventListener('click', closePlaylistModal);
+    // Setlist form
+    dom.setlistForm.addEventListener('submit', saveSetlist);
+    $('btn-cancel-setlist').addEventListener('click', closeSetlistModal);
+    $('btn-close-setlist').addEventListener('click', closeSetlistModal);
+    dom.setlistModal.querySelector('.modal-backdrop').addEventListener('click', closeSetlistModal);
     
-    // Add songs to playlist
-    $('btn-add-songs-to-playlist').addEventListener('click', openAddSongsModal);
+    // Add songs to setlist
+    $('btn-add-songs-to-setlist').addEventListener('click', openAddSongsModal);
     $('btn-cancel-add-songs').addEventListener('click', closeAddSongsModal);
     $('btn-confirm-add-songs').addEventListener('click', confirmAddSongs);
     dom.addSongsModal.querySelector('.modal-backdrop').addEventListener('click', closeAddSongsModal);
@@ -3067,15 +3181,16 @@
       if (e.key === 'Escape') {
         closeSongActionsMenu();
         // Song modal is excluded - only Cancel and Save buttons close it
-        if (!dom.playlistModal.classList.contains('hidden')) closePlaylistModal();
+        if (!dom.setlistModal.classList.contains('hidden')) closeSetlistModal();
         if (!dom.addSongsModal.classList.contains('hidden')) closeAddSongsModal();
         if (!dom.confirmModal.classList.contains('hidden')) closeConfirmModal();
         if (dom.shareQrModal && !dom.shareQrModal.classList.contains('hidden')) closeShareQrModal();
+        if (dom.scanQrOverlay && !dom.scanQrOverlay.classList.contains('hidden')) closeScannerOverlay();
         if (!$('preferences-modal').classList.contains('hidden')) closePreferencesModal();
       }
       
-      // Arrow key navigation for playlist songs
-      if (viewingPlaylistSongIndex >= 0 && !e.target.matches('input, textarea') && !e.target.isContentEditable) {
+      // Arrow key navigation for setlist songs
+      if (viewingSetlistSongIndex >= 0 && !e.target.matches('input, textarea') && !e.target.isContentEditable) {
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           navigateToPreviousSong();
@@ -3095,6 +3210,7 @@
     // Preferences
     $('btn-preferences').addEventListener('click', openPreferencesModal);
     $('btn-close-preferences').addEventListener('click', closePreferencesModal);
+    $('btn-close-preferences-x').addEventListener('click', closePreferencesModal);
     $('preferences-modal').querySelector('.modal-backdrop').addEventListener('click', closePreferencesModal);
     $('pref-theme-dark').addEventListener('click', () => setTheme('dark'));
     $('pref-theme-light').addEventListener('click', () => setTheme('light'));
@@ -3163,7 +3279,12 @@
   function getSeenTourFeatures() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.TOUR_FEATURES_SEEN) || '[]');
-      return new Set(Array.isArray(saved) ? saved : []);
+      const seenFeatures = new Set(Array.isArray(saved) ? saved : []);
+      if (seenFeatures.delete('playlist-reorder')) {
+        seenFeatures.add('setlist-reorder');
+        saveSeenTourFeatures(seenFeatures);
+      }
+      return seenFeatures;
     } catch (e) {
       return new Set();
     }
@@ -3268,9 +3389,11 @@
     loadData();
     loadTheme();
     loadNotationPref();
+    desktopSidebarCollapsed = localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === 'true';
+    syncSidebarLayout();
     createSwipeIndicators();
     renderSongList();
-    renderPlaylistList();
+    renderSetlistList();
     initEventListeners();
     
     // Load persisted font size
@@ -3291,7 +3414,7 @@
     // Show empty state initially
     dom.emptyState.classList.remove('hidden');
     dom.songDetail.classList.add('hidden');
-    dom.playlistDetail.classList.add('hidden');
+    dom.setlistDetail.classList.add('hidden');
     renderHomeDashboard();
 
     // Initialize Firebase sync
@@ -3303,10 +3426,10 @@
           songs = data;
           renderSongList();
           renderSongDetail();
-        } else if (type === 'playlists') {
-          playlists = data;
-          renderPlaylistList();
-          if (selectedPlaylistId) renderPlaylistDetail();
+        } else if (type === 'setlists') {
+          setlists = data;
+          renderSetlistList();
+          if (selectedSetlistId) renderSetlistDetail();
         }
       });
     }

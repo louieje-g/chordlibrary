@@ -18,9 +18,9 @@ async function seedSong(page, overrides = {}) {
       updatedAt: Date.now() - 60000,
       ...songOverrides
     }]));
-    localStorage.setItem('chord-library-playlists', '[]');
+    localStorage.setItem('chord-library-setlists', '[]');
     localStorage.setItem('chord-library-tour-features-seen', JSON.stringify([
-      'two-column', 'accept-transposition', 'preferences', 'playlist-reorder', 'inline-edit-tools', 'library-refresh'
+      'two-column', 'accept-transposition', 'preferences', 'setlist-reorder', 'inline-edit-tools', 'library-refresh'
     ]));
   }, overrides);
   await page.reload();

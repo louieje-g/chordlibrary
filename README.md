@@ -13,11 +13,11 @@ A mobile-first offline chord library web application for musicians. Store, organ
 - **Key Display**: Auto-detected key shown and updated when transposing
 - **Two-Column View**: Display long chord sheets in two balanced columns with a persistent per-song setting
 - **Adjustable Font Size**: Resize chord sheets from 8px to 30px for different screens and viewing distances
-- **Playlists**: Build performance setlists with a clear summary, guided empty state, and accessible song controls
-- **Playlist Reorder**: Drag-and-drop song ordering within playlists
-- **Playlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a playlist
-- **Library Drawer**: Searchable song and playlist collections with counts, update context, and quick-create actions
-- **Home Dashboard**: A prominent “Jump back in” view with recent songs, playlists, update times, and quick access to full lists
+- **Setlists**: Build performance setlists with a clear summary, guided empty state, and accessible song controls
+- **Setlist Reorder**: Drag-and-drop song ordering within setlists
+- **Setlist Navigation**: Swipe left/right or use arrow keys to navigate songs in a setlist
+- **Library Drawer**: Searchable song and setlist collections with counts, update context, and quick-create actions
+- **Home Dashboard**: A prominent “Jump back in” view with recent songs, setlists, update times, and quick access to full lists
 - **Preferences**: Theme (dark/light) and chord notation (original/sharp/flat) settings
 - **Smart QR Sharing**: Compressed QR codes that strip lyrics for easier scanning
 - **Firebase Sync**: Optional Google sign-in for cross-device sync via Firestore
@@ -47,9 +47,9 @@ python -m http.server 8000
 1. **Add Songs**: Click the "+" button in the header
 2. **View Song**: Tap on a song in the sidebar list
 3. **Transpose**: Use "−" and "+" buttons to transpose, "Reset" to return to original key
-4. **Create Playlist**: Go to the Playlists tab, click "+ New Playlist"
-5. **Add Songs to Playlist**: Open a playlist and click "+ Add Songs"
-6. **Navigate Playlist Songs**: Use "‹" and "›" buttons or swipe left/right on mobile
+4. **Create Setlist**: Go to the Setlists tab, click "+ New Setlist"
+5. **Add Songs to Setlist**: Open a setlist and click "+ Add Songs"
+6. **Navigate Setlist Songs**: Use "‹" and "›" buttons or swipe left/right on mobile
 
 ## Supported Chords
 

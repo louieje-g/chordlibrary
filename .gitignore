@@ -25,7 +25,7 @@ temp/
 # Logs
 *.log
 logs/
-tests/playlist-reorder.spec.js
+tests/setlist-reorder.spec.js
 package-lock.json
 package.json
 playwright.config.js
